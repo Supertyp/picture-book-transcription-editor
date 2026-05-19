@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Transcription Editor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0f1117;
+    --surface:   #181c27;
+    --surface2:  #1e2335;
+    --border:    #2a3050;
+    --accent:    #4e9af1;
+    --accent2:   #f1c94e;
+    --accent3:   #4ef1a0;
+    --text:      #d4daf0;
+    --text-dim:  #6b78a0;
+    --danger:    #f16060;
+    --saved:     #4ef1a0;
+    --img-bg:    #0a0d14;
+    --radius:    6px;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+  :root.light {
+    --bg:        #f4f5f8;
+    --surface:   #ffffff;
+    --surface2:  #ebedf2;
+    --border:    #cdd0db;
+    --accent:    #1a6ed8;
+    --accent2:   #c47d00;
+    --accent3:   #1a9e5c;
+    --text:      #1a1d2e;
+    --text-dim:  #6b7280;
+    --danger:    #d93025;
+    --saved:     #1a9e5c;
+    --img-bg:    #d8dae0;
+  }
+  *, *::before, *::after { transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* HEADER */
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
+  .logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.05em; white-space: nowrap; }
+  .logo span { color: var(--accent2); }
+  .header-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  button { font-family: var(--sans); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: var(--sans); white-space: nowrap; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0f1117; font-weight: 600; }
+  .btn.primary:hover { background: #6ab0f7; border-color: #6ab0f7; }
+  .btn.success { background: var(--accent3); border-color: var(--accent3); color: #0f1117; font-weight: 600; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block; transition: background .3s; }
+  .status-dot.saved { background: var(--saved); box-shadow: 0 0 6px var(--saved); }
+  .status-dot.dirty { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .status-label { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* WELCOME */
+  #welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px; }
+  .welcome-icon { font-size: 56px; line-height: 1; }
+  .welcome-title { font-size: 28px; font-weight: 300; color: var(--text); letter-spacing: -0.02em; }
+  .welcome-title strong { color: var(--accent); font-weight: 600; }
+  .welcome-sub { font-size: 14px; color: var(--text-dim); text-align: center; max-width: 520px; line-height: 1.7; }
+  .welcome-actions { display: flex; gap: 12px; margin-top: 8px; }
+
+  /* EDITOR */
+  #editor { flex: 1; display: none; overflow: hidden; flex-direction: column; }
+  .editor-toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+  .nav-controls { display: flex; align-items: center; gap: 6px; }
+  .file-counter { font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 80px; text-align: center; }
+  .file-name { font-family: var(--mono); font-size: 12px; color: var(--accent2); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .progress-bar { flex: 1; min-width: 100px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent3)); transition: width .3s ease; }
+
+  /* PANES */
+  .panes { flex: 1; display: flex; overflow: hidden; }
+
+  /* IMAGE PANE */
+  .image-pane { width: 55%; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--img-bg); overflow: hidden; }
+  .image-viewport { flex: 1; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; cursor: grab; user-select: none; }
+  .image-viewport:active { cursor: grabbing; }
+  .image-viewport.panning { cursor: grab; }
+  .image-viewport.panning:active { cursor: grabbing; }
+  .image-viewport.selecting { cursor: crosshair; }
+  #mainImage { max-width: none; max-height: none; display: block; transform-origin: center center; pointer-events: none; user-select: none; position: absolute; }
+  #selCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* IMAGE CONTROLS */
+  .image-controls { padding: 8px 16px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; background: var(--surface); flex-shrink: 0; }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-label { width: 76px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+  .slider-val { width: 42px; font-family: var(--mono); font-size: 11px; color: var(--accent); text-align: right; flex-shrink: 0; }
+  input[type=range] { flex: 1; -webkit-appearance: none; height: 4px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--bg); transition: background .15s; }
+  input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--bg); }
+  input[type=range]:hover::-webkit-slider-thumb { background: #6ab0f7; }
+  input[type=range]:hover::-moz-range-thumb { background: #6ab0f7; }
+  .image-controls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .mode-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-left: auto; }
+  .mode-label.sel { color: var(--accent2); }
+
+  /* REGIONS PANEL */
+  .regions-panel { padding: 5px 16px 7px; border-top: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; max-height: 100px; overflow-y: auto; }
+  .regions-title { font-family: var(--mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .region-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .region-tag { display: inline-flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); cursor: pointer; transition: border-color .15s; }
+  .region-tag:hover { border-color: var(--accent); color: var(--text); }
+  .region-tag.hi { border-color: var(--accent2); color: var(--accent2); }
+  .region-tag.edited { border-color: var(--accent3); }
+  .region-tag.edited .crop-status { color: var(--accent3); font-size: 10px; }
+  .crop-status { font-size: 10px; opacity: 0.7; }
+  .del-btn { color: var(--danger); font-size: 11px; line-height: 1; padding: 0 2px; background: none; border: none; cursor: pointer; font-family: var(--mono); }
+  .del-btn:hover { color: #ff8080; }
+
+  /* TEXT PANE */
+  .text-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; flex-shrink: 0; background: var(--surface2); }
+  .tab { padding: 10px 16px 9px; font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-dim); transition: all .15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; border: none; background: none; font-family: var(--sans); }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  .lang-badge { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px; background: var(--border); color: var(--text-dim); }
+  .tab.active .lang-badge { background: rgba(78,154,241,0.2); color: var(--accent); }
+  .has-content { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); display: none; }
+  .has-content.show { display: inline-block; }
+  .tab-panels { flex: 1; overflow: hidden; }
+  .tab-panel { display: none; height: 100%; flex-direction: column; padding: 16px; gap: 10px; }
+  .tab-panel.active { display: flex; }
+  .lang-header { display: flex; gap: 8px; align-items: center; }
+  .lang-input { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 4px 8px; width: 120px; outline: none; transition: border-color .15s; }
+  .lang-input:focus { border-color: var(--accent); }
+  .lang-input::placeholder { color: var(--text-dim); }
+  .text-label { font-size: 11px; color: var(--text-dim); font-family: var(--mono); letter-spacing: 0.05em; text-transform: uppercase; }
+  textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.7; padding: 12px; resize: none; outline: none; transition: border-color .15s; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+  .notes-row { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+  .notes-input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 10px; outline: none; transition: border-color .15s; width: 100%; }
+  .notes-input:focus { border-color: var(--accent2); }
+  .notes-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+  /* THUMBNAILS */
+  /* STACKED VIEW */
+  .text-pane.stacked .tabs { display: flex; }
+  .text-pane.stacked .tabs .tab { display: none; }
+  .text-pane.stacked .tab-panels { overflow: hidden; display: flex; flex-direction: column; }
+  .text-pane.stacked .tab-panel { display: flex !important; flex: 1 1 0; min-height: 0; height: auto; border-bottom: 1px solid var(--border); padding: 6px 12px 6px; gap: 6px; flex-direction: column; }
+  .text-pane.stacked .tab-panel textarea { flex: 1; min-height: 0; resize: none; font-size: 12px; padding: 6px 8px; }
+  .text-pane.stacked .notes-row { display: none; }
+  .text-pane.stacked .lang-header { display: none; }
+  .text-pane.stacked .stack-lang-pill { display: none; }
+  .text-pane.stacked .stack-badge { display: flex !important; }
+  .stack-badge { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
+  .stack-badge-label { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--accent); background: rgba(78,154,241,0.12); border: 1px solid rgba(78,154,241,0.25); border-radius: 3px; padding: 1px 6px; }
+  .text-pane.stacked .tab-btn { display: none; }
+  .text-pane.stacked .stack-toolbar { display: flex !important; }
+  .stack-toolbar { display: none; align-items: center; padding: 4px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px; }
+  .stack-toolbar-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+
+  .thumb-strip { display: flex; gap: 4px; padding: 6px 8px; background: var(--surface2); border-top: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; align-items: center; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .thumb-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
+  .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 3px; border: 2px solid var(--border); display: block; opacity: 0.5; transition: all .15s; }
+  .thumb-wrap:hover .thumb { opacity: 0.85; border-color: var(--accent); }
+  .thumb-wrap.active .thumb { opacity: 1; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .thumb-wrap.done .thumb { border-color: var(--accent3); opacity: 0.8; }
+  .thumb-wrap.done.active .thumb { border-color: var(--accent3); box-shadow: 0 0 0 1px var(--accent3); }
+  .thumb-num { position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.65); color: #fff; font-family: var(--mono); font-size: 9px; font-weight: 600; line-height: 1; padding: 1px 3px; border-radius: 2px; pointer-events: none; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 16px; font-size: 13px; font-family: var(--mono); color: var(--text); opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; z-index: 999; max-width: 360px; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.ok  { border-color: var(--accent3); color: var(--accent3); }
+  #toast.warn{ border-color: var(--accent2); color: var(--accent2); }
+  #toast.err { border-color: var(--danger);  color: var(--danger); }
+
+  /* MODAL */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; }
+  .modal-backdrop.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 28px; max-width: 480px; width: 90%; display: flex; flex-direction: column; gap: 16px; }
+  .modal h3 { font-size: 16px; font-weight: 600; }
+  .modal p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .field-row { display: flex; flex-direction: column; gap: 6px; }
+  .field-row label { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .field-row input, .field-row select { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 10px; outline: none; }
+  .field-row input:focus, .field-row select:focus { border-color: var(--accent); }
+  .field-row select option { background: var(--surface); }
+
+  /* PDF PROGRESS */
+  .pdf-progress { display: flex; flex-direction: column; gap: 12px; }
+  .pdf-progress-bar { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .pdf-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent3)); transition: width .2s; border-radius: 4px; }
+  .pdf-progress-label { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* HELP STEP CARDS */
+  .help-step { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; position: relative; }
+  .help-step-num { position: absolute; top: 8px; right: 8px; font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--text-dim); background: var(--border); border-radius: 10px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+  .help-step-icon { font-size: 20px; line-height: 1; margin-bottom: 5px; }
+  .help-step-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .help-step-body { font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .help-step-body strong { color: var(--text); }
+  .help-step-body code { font-family: var(--mono); font-size: 11px; background: var(--border); padding: 1px 4px; border-radius: 3px; }
+
+  /* WELCOME scroll */
+  #welcome { flex: 1; overflow-y: auto; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Transcription <span>//</span> Editor</div>
+  <div class="header-actions">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">no folder loaded</span>
+    <button class="btn" onclick="showHelp()" title="How to use this tool">❓ Help</button>
+    <button class="btn" id="btnTheme" onclick="toggleTheme()" title="Switch to dark mode">🌙 Dark</button>
+    <button class="btn" onclick="openFolder()" title="Open a folder of images or PDFs to work on">📂 Open Folder</button>
+    <button class="btn success" id="btnSave" onclick="saveRoCrate()" disabled title="Save all metadata to ro-crate-metadata.json in your folder (Ctrl+S)">💾 Save</button>
+    <button class="btn" id="btnCrateInfo" onclick="showCrateInfo()" disabled title="Edit collection-level metadata: title, creator, language, license">ℹ️ Crate Info</button>
+  </div>
+</header>
+
+<div id="welcome">
+  <div style="width:100%;max-width:720px;margin:0 auto;padding:28px 24px 36px;">
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:32px;line-height:1;margin-bottom:8px;">🗂️</div>
+      <div style="font-size:22px;font-weight:300;letter-spacing:-0.02em;">Image <strong style="color:var(--accent);font-weight:600;">Transcription Editor</strong></div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:6px;line-height:1.6;">
+        Transcribe text from historical images and mark regions of interest.<br>
+        Everything is tracked in a RO-Crate file saved automatically in your project folder.
+      </div>
+    </div>
+
+    <div style="font-size:13px;color:var(--text-dim);line-height:1.85;display:flex;flex-direction:column;gap:10px;">
+
+      <div><strong style="color:var(--text);">1 · Open your folder</strong> — Click <strong>Open Folder</strong> and select the folder with your image or PDF files. PDFs are split into one image per page automatically. The tool creates a <strong>RO-Crate</strong> file in the folder to track all your work. If one already exists, your previous work is loaded instantly and you can resume where you left off.</div>
+
+      <div><strong style="color:var(--text);">2 · Transcribe text</strong> — Type the text you see in the image into the box on the right. Up to three languages per image using the tabs. Use <strong>Notes</strong> for uncertain readings. Navigate with ◀ Prev / Next ▶ or the arrow keys.</div>
+
+      <div><strong style="color:var(--text);">3 · Select regions</strong> — Click <strong>⬚ Select Region</strong>, then drag a rectangle over any area you want to extract — a stamp, seal, drawing. The crop is saved to your folder immediately. Click <strong>✕</strong> on a region tag to delete it and remove the file. Press <kbd style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:11px;font-family:var(--mono)">Esc</kbd> to exit drawing mode.</div>
+
+      <div><strong style="color:var(--text);">4 · Export crops</strong> — Click <strong>⬇ Download Crops</strong> to get a ZIP of all your region crops as individual JPEGs. Open and edit them in Paint.NET or any image editor. <strong>Do not rename the files.</strong></div>
+
+      <div><strong style="color:var(--text);">5 · Import edited crops</strong> — After editing, click <strong>⬆ Import Crops</strong> and select the folder containing your edited files. They are matched automatically, copied into your project folder, and recorded in the metadata. Region tags show <strong>✓ edited</strong> in green.</div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+        <strong style="color:var(--text);">📦 Native RO-Crate</strong> — This project is <strong>Native RO-Crate</strong>: all metadata lives in a single open-standard file (<code style="font-family:var(--mono);font-size:11px;background:var(--border);padding:1px 4px;border-radius:3px;">ro-crate-metadata.json</code>) directly in your folder. It records every image, transcription, region and crop with full provenance. The file can be read by any RO-Crate compatible tool and shared or archived as-is alongside your images.
+      </div>
+
+      <div>
+        <strong style="color:var(--text);">💾 Automatic saving</strong> — The RO-Crate file is created and kept up to date as you work — on navigation, region changes, and after a short typing pause. Press <kbd style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:11px;font-family:var(--mono)">Ctrl+S</kbd> or click <strong>💾 Save</strong> to force an immediate update.
+      </div>
+
+      <div>
+        <strong style="color:var(--text);">⚠️ Browser requirement</strong> — Requires <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (version 86+) to read and write files. Firefox and Safari can edit but cannot save directly. Internet is only needed the first time a PDF is processed.
+      </div>
+
+    </div>
+
+    <div style="text-align:center;margin-top:28px;">
+      <button class="btn primary" onclick="openFolder()" style="font-size:14px;padding:10px 28px;">📂 Open Folder to Begin</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="editor">
+  <div class="editor-toolbar">
+    <div class="nav-controls">
+      <button class="btn" onclick="navigate(-1)">◀ Prev</button>
+      <span class="file-counter" id="fileCounter">0 / 0</span>
+      <button class="btn" onclick="navigate(1)">Next ▶</button>
+    </div>
+    <span class="file-name" id="fileName">—</span>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <span class="status-label" id="progressLabel" style="font-size:11px;">0 done</span>
+  </div>
+
+  <div class="panes">
+    <!-- IMAGE PANE -->
+    <div class="image-pane">
+      <div class="image-viewport" id="imageViewport">
+        <img id="mainImage" src="" alt="" draggable="false"/>
+        <canvas id="selCanvas"></canvas>
+        <div id="noImageMsg" style="color:var(--text-dim);font-size:14px;display:none;">No image</div>
+      </div>
+
+      <div class="image-controls">
+        <div class="slider-row">
+          <span class="slider-label" title="Zoom in or out — also use scroll wheel on the image">Zoom</span>
+          <input type="range" id="sliderZoom" min="10" max="400" value="100" oninput="applyZoom(this.value)" title="Zoom level (10–400%)">
+          <span class="slider-val" id="valZoom">100%</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" title="Increase contrast to make faded text stand out more">Contrast</span>
+          <input type="range" id="sliderContrast" min="50" max="300" value="100" oninput="applyContrast(this.value)" title="Contrast adjustment (50–300%)">
+          <span class="slider-val" id="valContrast">100%</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" title="Brighten or darken the image for legibility">Brightness</span>
+          <input type="range" id="sliderBright" min="20" max="300" value="100" oninput="applyBright(this.value)" title="Brightness adjustment (20–300%)">
+          <span class="slider-val" id="valBright">100%</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" title="Tilt the image slightly to straighten a skewed page — visual only, does not affect saved coordinates">Fine Rotate</span>
+          <input type="range" id="sliderFineRot" min="-45" max="45" value="0" step="0.1" oninput="applyFineRotation(this.value)" title="Fine rotation −45° to +45° to straighten skewed pages">
+          <span class="slider-val" id="valFineRot">0.0°</span>
+        </div>
+        <div class="image-controls-row">
+          <button class="btn" onclick="rotateImage()" style="font-size:11px;" title="Rotate image 90° clockwise — use for images that are on their side">↻ Rotate 90°</button>
+          <button class="btn" onclick="fitImage()" style="font-size:11px;" title="Fit the whole image into the viewer window">⊡ Fit</button>
+          <button class="btn" id="btnSelMode" onclick="toggleSelectMode()" style="font-size:11px;" title="Enter region drawing mode — drag a rectangle on the image to mark an area for cropping. Press Esc to exit.">⬚ Select Region</button>
+          <button class="btn" id="btnDownloadCrops" onclick="downloadCrops()" disabled style="font-size:11px;" title="Download all marked regions as a flat ZIP of JPEG files for editing in Paint.NET">⬇ Download Crops</button>
+          <button class="btn" id="btnImportCrops" onclick="importCrops()" disabled style="font-size:11px;" title="Import a folder of edited crop images back — files are matched by ID and copied into your project folder">⬆ Import Crops</button>
+          <span class="mode-label" id="modeLabel">pan mode</span>
+        </div>
+      </div>
+
+      <div class="regions-panel" id="regionsPanel" style="display:none;">
+        <div class="regions-title">📐 Regions <span style="font-size:9px;text-transform:none;letter-spacing:0;">(pixel coords in original image, rotation factored in)</span></div>
+        <div class="region-list" id="regionList"></div>
+      </div>
+    </div>
+
+    <!-- TEXT PANE -->
+    <div class="text-pane">
+      <div class="tabs">
+        <button class="tab active" id="tab0" onclick="switchTab(0)">Lang 1 <span class="lang-badge" id="badge0">—</span><span class="has-content" id="dot0"></span></button>
+        <button class="tab"        id="tab1" onclick="switchTab(1)">Lang 2 <span class="lang-badge" id="badge1">—</span><span class="has-content" id="dot1"></span></button>
+        <button class="tab"        id="tab2" onclick="switchTab(2)">Lang 3 <span class="lang-badge" id="badge2">—</span><span class="has-content" id="dot2"></span></button>
+        <button class="btn" id="btnStackToggle" onclick="toggleStackView()" title="Toggle between tab view and stacked view" style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;align-self:center;margin-right:8px;">⊟ Stack</button>
+      </div>
+      <div class="tab-panels">
+        <div class="tab-panel active" id="panel0">
+          <span class="stack-lang-pill" id="pill0">Lang 1</span>
+          <div class="stack-badge"><span class="stack-badge-label" id="stackBadge0">Lang 1</span></div>
+          <div class="lang-header">
+            <span class="text-label">Language</span>
+            <input class="lang-input" id="langCode0" placeholder="e.g. eng, fra, tok" oninput="onLangChange(0)" title="ISO 639-3 — applies globally">
+            <span class="text-label" style="color:var(--accent2);font-size:10px;" title="Changes apply to all images">🌐 global</span>
+          </div>
+          <textarea id="text0" placeholder="Transcribe text visible in this language…" oninput="onTextChange(0)"></textarea>
+          <div class="notes-row"><span class="text-label">Notes</span><input class="notes-input" id="notes0" placeholder="Notes…" oninput="markDirty()"></div>
+        </div>
+        <div class="tab-panel" id="panel1">
+          <span class="stack-lang-pill" id="pill1">Lang 2</span>
+          <div class="stack-badge"><span class="stack-badge-label" id="stackBadge1">Lang 2</span></div>
+          <div class="lang-header">
+            <span class="text-label">Language</span>
+            <input class="lang-input" id="langCode1" placeholder="e.g. deu, jpn, hmo" oninput="onLangChange(1)" title="ISO 639-3 — applies globally">
+            <span class="text-label" style="color:var(--accent2);font-size:10px;" title="Changes apply to all images">🌐 global</span>
+          </div>
+          <textarea id="text1" placeholder="Transcribe text visible in this language…" oninput="onTextChange(1)"></textarea>
+          <div class="notes-row"><span class="text-label">Notes</span><input class="notes-input" id="notes1" placeholder="Notes…" oninput="markDirty()"></div>
+        </div>
+        <div class="tab-panel" id="panel2">
+          <span class="stack-lang-pill" id="pill2">Lang 3</span>
+          <div class="stack-badge"><span class="stack-badge-label" id="stackBadge2">Lang 3</span></div>
+          <div class="lang-header">
+            <span class="text-label">Language</span>
+            <input class="lang-input" id="langCode2" placeholder="e.g. arb, zho, vie" oninput="onLangChange(2)" title="ISO 639-3 — applies globally">
+            <span class="text-label" style="color:var(--accent2);font-size:10px;" title="Changes apply to all images">🌐 global</span>
+          </div>
+          <textarea id="text2" placeholder="Transcribe text visible in this language…" oninput="onTextChange(2)"></textarea>
+          <div class="notes-row"><span class="text-label">Notes</span><input class="notes-input" id="notes2" placeholder="Notes…" oninput="markDirty()"></div>
+        </div>
+      </div>
+      <div class="thumb-strip" id="thumbStrip"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-backdrop" id="helpModal" onclick="if(event.target===this)closeHelp()">
+  <div class="modal" style="max-width:780px;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3>📖 How to use this tool</h3>
+      <button class="btn" onclick="closeHelp()" style="padding:4px 10px;font-size:12px;">✕ Close</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+      <div class="help-step">
+        <div class="help-step-num">1</div>
+        <div class="help-step-icon">📂</div>
+        <div class="help-step-title">Open your folder</div>
+        <div class="help-step-body">Click <strong>Open Folder</strong> and select the folder with your JPEG, PNG or PDF files. PDFs are split into one image per page automatically. The tool creates a <strong>RO-Crate</strong> file in the folder to track all your work. If one already exists, your previous work resumes instantly.</div>
+      </div>
+
+      <div class="help-step">
+        <div class="help-step-num">2</div>
+        <div class="help-step-icon">✍️</div>
+        <div class="help-step-title">Transcribe text</div>
+        <div class="help-step-body">Type a <strong>Language code</strong> (e.g. <code>eng</code>, <code>fra</code>, <code>tok</code>) — it applies to all images. Type the visible text into the large box. Up to three languages per image using the tabs. Use <strong>Notes</strong> for uncertain readings. Press <kbd style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:10px;font-family:var(--mono)">←→</kbd> arrow keys or ◀ Prev / Next ▶ to navigate.</div>
+      </div>
+
+      <div class="help-step">
+        <div class="help-step-num">3</div>
+        <div class="help-step-icon">📐</div>
+        <div class="help-step-title">Select regions</div>
+        <div class="help-step-body">Click <strong>⬚ Select Region</strong> (cursor becomes crosshair). Drag a rectangle over any area to extract it — stamps, seals, drawings. The crop is saved to your folder immediately. Click a region tag to highlight it; click <strong>✕</strong> to delete it and remove the file. Press <kbd style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:10px;font-family:var(--mono)">Esc</kbd> to exit drawing mode.</div>
+      </div>
+
+      <div class="help-step">
+        <div class="help-step-num">4</div>
+        <div class="help-step-icon">⬇️</div>
+        <div class="help-step-title">Export crops</div>
+        <div class="help-step-body">Click <strong>⬇ Download Crops</strong> to get a flat ZIP of all region crops as JPEGs. Open in Paint.NET or any editor. <strong>Do not rename the files</strong> — the unique ID in each filename is how they get matched when you re-import.</div>
+      </div>
+
+      <div class="help-step">
+        <div class="help-step-num">5</div>
+        <div class="help-step-icon">⬆️</div>
+        <div class="help-step-title">Import edited crops</div>
+        <div class="help-step-body">After editing, save the files into one folder (keep names unchanged). Click <strong>⬆ Import Crops</strong> and select that folder. Files are matched by ID, copied into your project, and recorded in the metadata. Region tags turn green and show <strong>✓ edited</strong>.</div>
+      </div>
+
+      <div class="help-step">
+        <div class="help-step-num">6</div>
+        <div class="help-step-icon">📦</div>
+        <div class="help-step-title">Native RO-Crate</div>
+        <div class="help-step-body">This project is <strong>Native RO-Crate</strong> — all metadata lives in a single open-standard file (<code>ro-crate-metadata.json</code>) directly in your folder. It records every image, transcription, region and crop with full provenance. The file can be read by any RO-Crate compatible tool and shared or archived as-is alongside your images.</div>
+      </div>
+
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-top:4px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;">⌨️ Keyboard shortcuts</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 16px;font-size:11px;color:var(--text-dim);font-family:var(--mono);">
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">← →</kbd> prev / next image</span>
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">1 2 3</kbd> switch language tab</span>
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">Ctrl+S</kbd> save RO-Crate</span>
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">Esc</kbd> exit region draw mode</span>
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">scroll</kbd> zoom in/out</span>
+        <span><kbd style="background:var(--border);padding:1px 5px;border-radius:3px;">drag</kbd> pan image (pan mode)</span>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-dim);margin-top:8px;line-height:1.5;">
+      💾 <strong>Saving is automatic</strong> — this tool creates and continuously updates <code>ro-crate-metadata.json</code> in your project folder. It tracks every image, transcription, region, crop and edited file in a standard open format. Saving is automatic; use <kbd style="background:var(--border);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:10px;">Ctrl+S</kbd> or <strong>💾 Save</strong> to force an immediate update.<br>
+      ⚠️ <strong>Requires Chrome or Edge 86+</strong> for direct file saving. Firefox/Safari work for editing but saving requires copying the JSON manually.
+    </div>
+
+    <div class="modal-actions" style="margin-top:8px;">
+      <button class="btn primary" onclick="closeHelp()">Got it — let's work</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="crateModal" onclick="if(event.target===this)closeCrateModal()">
+  <div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3>📦 Item Metadata</h3>
+      <button class="btn" onclick="closeCrateModal()" style="padding:4px 10px;font-size:12px;">✕ Close</button>
+    </div>
+    <p>This information is stored in your RO-Crate file alongside the images.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+      <div class="field-row"><label>Item Identifier</label><input id="mIdentifier" placeholder="e.g. 1995Elders_A39"></div>
+      <div class="field-row"><label>Item Title</label><input id="mTitle" placeholder="e.g. Introductory Materials"></div>
+      <div class="field-row" style="grid-column:1/-1;"><label>Item Description</label><input id="mDesc" placeholder="e.g. Four text stories for interviews"></div>
+      <div class="field-row"><label>Content Language <span style="font-weight:400;color:var(--text-dim)">(language spoken)</span></label><input id="mContentLang" placeholder="e.g. tok, eng"></div>
+      <div class="field-row"><label>Subject Language <span style="font-weight:400;color:var(--text-dim)">(language discussed)</span></label><input id="mSubjectLang" placeholder="e.g. tok"></div>
+      <div class="field-row"><label>Country / Countries <span style="font-weight:400;color:var(--text-dim)">(separate with |)</span></label><input id="mCountry" placeholder="e.g. Papua New Guinea | Australia"></div>
+      <div class="field-row"><label>Origination Date</label><input id="mOriginDate" placeholder="e.g. 1995-03-12"></div>
+      <div class="field-row"><label>Region</label><input id="mRegion" placeholder="e.g. Oceania, Polynesia"></div>
+      <div class="field-row"><label>Original Media</label><input id="mMedia" placeholder="e.g. Text, Audio, Video"></div>
+      <div class="field-row"><label>Data Categories / Data Type</label><input id="mDataCategories" placeholder="e.g. Primary text"></div>
+      <div class="field-row"><label>Discourse Type</label><input id="mDiscourseType" placeholder="e.g. narrative, conversation"></div>
+      <div class="field-row"><label>Dialect</label><input id="mDialect" placeholder="e.g. Viennese"></div>
+      <div class="field-row"><label>Language as Given</label><input id="mLangAsGiven" placeholder="e.g. German"></div>
+      <div class="field-row"><label>License</label>
+        <select id="mLicense">
+          <option value="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</option>
+          <option value="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</option>
+          <option value="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</option>
+          <option value="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);">People &amp; Roles</span>
+        <button class="btn" onclick="addPersonRow()" style="font-size:11px;padding:3px 10px;">+ Add Person</button>
+      </div>
+      <div style="display:grid;grid-template-columns:160px 1fr 1fr 28px;gap:4px 8px;align-items:center;margin-bottom:6px;">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Role</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">First name</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Last name</span>
+        <span></span>
+      </div>
+      <div id="personRows" style="display:flex;flex-direction:column;gap:4px;"></div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn" onclick="closeCrateModal()">Cancel</button>
+      <button class="btn primary" onclick="saveCrateInfo()">Save Metadata</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="jsonModal">
+  <div class="modal" style="max-width:620px;">
+    <h3>📋 Copy RO-Crate JSON</h3>
+    <p>Save as <strong>ro-crate-metadata.json</strong> in your image folder.</p>
+    <textarea id="jsonOutput" style="height:260px;font-size:11px;" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeJsonModal()">Close</button>
+      <button class="btn primary" onclick="copyJson()">📋 Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pdfModal">
+  <div class="modal">
+    <h3>📄 Extracting PDF Pages</h3>
+    <div class="pdf-progress">
+      <div class="pdf-progress-label" id="pdfProgressLabel">Loading PDF…</div>
+      <div class="pdf-progress-bar"><div class="pdf-progress-fill" id="pdfProgressFill"></div></div>
+      <p style="font-size:12px;">Rendering pages to JPEG images in your folder.</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let dirHandle = null, imageFiles = [], currentIndex = 0;
+let isDirty = false, autoSaveTimer = null;
+let pdfSources = [], globalLangCodes = ['','',''];
+const RO_CRATE_FILENAME = 'ro-crate-metadata.json';
+
+// Per-image: { langs:[{code,text,notes}x3], rotation, fineRotation, regions:[{id,x,y,w,h}] }
+let data = {};
+
+let crateInfo = {
+  identifier:'', title:'', description:'', contentLang:'', subjectLang:'',
+  country:'', originDate:'', region:'', media:'', dataCategories:'',
+  discourseType:'', dialect:'', langAsGiven:'',
+  license:'https://creativecommons.org/licenses/by/4.0/',
+  dateCreated: new Date().toISOString().slice(0,10),
+  dateModified: new Date().toISOString().slice(0,10),
+  people: [], // [{role, firstName, lastName}]
+};
+
+// View
+let zoom=100, contrast=100, brightness=100, rotation=0, fineRotation=0;
+let panX=0, panY=0, dragging=false, dragStart={x:0,y:0};
+let activeTab=0;
+
+// Selection
+let selectMode=false, selStart=null, selCurrent=null, selActive=-1;
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function uid() { return Math.random().toString(36).slice(2,10); }
+function emptyData() {
+  return { langs:[{code:'',text:'',notes:''},{code:'',text:'',notes:''},{code:'',text:'',notes:''}],
+           rotation:0, fineRotation:0, regions:[] };
+}
+
+// ══════════════════════════════════════════
+//  FOLDER OPEN
+// ══════════════════════════════════════════
+async function openFolder() {
+  if (!window.showDirectoryPicker) { toast('Requires Chrome/Edge 86+.','err',4000); return; }
+  try { dirHandle = await window.showDirectoryPicker({ mode:'readwrite' }); }
+  catch(e) { if (e.name!=='AbortError') toast('Could not open folder: '+e.message,'err'); return; }
+
+  imageFiles=[]; pdfSources=[]; data={};
+  for await (const [name,handle] of dirHandle.entries()) {
+    if (handle.kind==='file' && /\.(jpg|jpeg|png)$/i.test(name) && name!=='ro-crate-preview.jpg' && !isCropFile(name)) imageFiles.push({name,handle});
+    if (handle.kind==='file' && /\.pdf$/i.test(name)) pdfSources.push({name,handle});
+  }
+  for (const pdf of pdfSources) await extractPdfPages(pdf);
+  if (pdfSources.length) {
+    imageFiles=[];
+    for await (const [name,handle] of dirHandle.entries())
+      if (handle.kind==='file' && /\.(jpg|jpeg|png)$/i.test(name) && name!=='ro-crate-preview.jpg' && !isCropFile(name)) imageFiles.push({name,handle});
+  }
+  if (!imageFiles.length) { toast('No images found. Add JPEG, PNG or PDF files.','warn'); return; }
+  imageFiles.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+
+  await tryLoadRoCrate();
+  for (const f of imageFiles) if (!data[f.name]) data[f.name]=emptyData();
+
+  buildThumbs(); currentIndex=0; showEditor(); await loadImage(0);
+}
+
+// ══════════════════════════════════════════
+//  RO-CRATE LOAD
+// ══════════════════════════════════════════
+async function tryLoadRoCrate() {
+  let ch; try { ch=await dirHandle.getFileHandle(RO_CRATE_FILENAME); } catch { return; }
+  try { importFromRoCrate(JSON.parse(await (await ch.getFile()).text())); toast('✅ Resumed from existing RO-Crate','ok',3000); }
+  catch { toast('⚠️ Could not parse ro-crate-metadata.json','warn',4000); }
+  pdfSources=[];
+  for await (const [name,handle] of dirHandle.entries())
+    if (handle.kind==='file' && /\.pdf$/i.test(name)) pdfSources.push({name,handle});
+}
+
+function importFromRoCrate(json) {
+  const graph=json['@graph']||[];
+  const root=graph.find(n=>n['@id']=='./'||n['@type']==='Dataset');
+  if (root) {
+    crateInfo.title        = root.name||crateInfo.title;
+    crateInfo.description  = root.description||'';
+    crateInfo.identifier   = root.identifier||'';
+    crateInfo.dateCreated  = root.dateCreated||crateInfo.dateCreated;
+    crateInfo.originDate   = root.datePublished||'';
+    crateInfo.region       = root.spatialCoverage||'';
+    crateInfo.media        = root.encodingFormat||'';
+    crateInfo.dataCategories= root.dataCategories||'';
+    crateInfo.discourseType= root.discourseType||'';
+    crateInfo.dialect      = root.dialect||'';
+    crateInfo.langAsGiven  = root.languageAsGiven||'';
+    crateInfo.contentLang  = Array.isArray(root.inLanguage)?root.inLanguage.join(' | '):(root.inLanguage||'');
+    crateInfo.subjectLang  = Array.isArray(root.subjectLanguage)?root.subjectLanguage.join(' | '):(root.subjectLanguage||'');
+    crateInfo.country      = Array.isArray(root.locationCreated)?root.locationCreated.join(' | '):(root.locationCreated||'');
+    if (root.license) crateInfo.license=root.license['@id']||root.license;
+    // Restore people
+    if (root.contributor) {
+      const contribs=Array.isArray(root.contributor)?root.contributor:[root.contributor];
+      crateInfo.people=contribs.map(c=>{
+        const node=graph.find(n=>n['@id']===(c['@id']||c));
+        return node?{role:node.roleName||'',firstName:node.givenName||'',lastName:node.familyName||''}:{role:'',firstName:'',lastName:''};
+      });
+    }
+  }
+  let globalSet=false;
+  for (const node of graph) {
+    if (!node['@id']||node['@id']==='./') continue;
+    const fname=node['@id'].replace(/^\.\//,'');
+    const d=emptyData();
+    if (node.transcript) {
+      const ts=Array.isArray(node.transcript)?node.transcript:[node.transcript];
+      ts.forEach((t,i)=>{ if(i<3){d.langs[i].code=t.inLanguage||'';d.langs[i].text=t.text||'';d.langs[i].notes=t.description||'';} });
+      if (!globalSet) { ts.forEach((t,i)=>{ if(i<3&&t.inLanguage) globalLangCodes[i]=t.inLanguage; }); globalSet=true; }
+    }
+    if (node.rotation!==undefined) d.rotation=node.rotation;
+    if (node.fineRotation!==undefined) d.fineRotation=node.fineRotation;
+    if (node.region) {
+      const rs=Array.isArray(node.region)?node.region:[node.region];
+      d.regions=rs.map(r=>{
+        // @id is stored as e.g. "./image_crop_abc123.jpg" — extract just the bare id
+        const rawId = r['@id'] || '';
+        const idMatch = rawId.match(/_crop_([a-z0-9]+)\.jpg$/i);
+        const id = idMatch ? idMatch[1] : (r.id || uid());
+        return {id, x:r.x, y:r.y, w:r.width, h:r.height, editedCropName:r.editedCropName||null};
+      });
+    }
+    data[fname]=d;
+  }
+}
+
+// ══════════════════════════════════════════
+//  PDF EXTRACTION
+// ══════════════════════════════════════════
+async function loadPdfJs() {
+  if (window.pdfjsLib) return true;
+  return new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(true); };
+    s.onerror=()=>res(false); document.head.appendChild(s);
+  });
+}
+async function extractPdfPages(pdfEntry) {
+  const base=pdfEntry.name.replace(/\.pdf$/i,'');
+  for await (const [name] of dirHandle.entries()) if (name.startsWith(base+'_p')&&/\.(jpg|jpeg)$/i.test(name)) return;
+  if (!await loadPdfJs()) { toast('⚠️ Could not load PDF.js (needs internet).','warn',5000); return; }
+  const modal=document.getElementById('pdfModal'), label=document.getElementById('pdfProgressLabel'), fill=document.getElementById('pdfProgressFill');
+  modal.classList.add('show'); label.textContent=`Loading ${pdfEntry.name}…`; fill.style.width='0%';
+  try {
+    const pdf=await window.pdfjsLib.getDocument({data:await (await pdfEntry.handle.getFile()).arrayBuffer()}).promise;
+    for (let p=1;p<=pdf.numPages;p++) {
+      const out=`${base}_p${String(p).padStart(3,'0')}.jpg`;
+      label.textContent=`Rendering page ${p}/${pdf.numPages} → ${out}`;
+      fill.style.width=Math.round((p-1)/pdf.numPages*100)+'%';
+      const page=await pdf.getPage(p), vp2=page.getViewport({scale:2});
+      const cv=document.createElement('canvas'); cv.width=vp2.width; cv.height=vp2.height;
+      await page.render({canvasContext:cv.getContext('2d'),viewport:vp2}).promise;
+      const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
+      const fh=await dirHandle.getFileHandle(out,{create:true}), w=await fh.createWritable(); await w.write(blob); await w.close();
+      fill.style.width=Math.round(p/pdf.numPages*100)+'%';
+    }
+    label.textContent=`✅ Done — ${pdf.numPages} pages extracted.`;
+    await new Promise(r=>setTimeout(r,800));
+  } catch(e) { label.textContent='❌ Error: '+e.message; await new Promise(r=>setTimeout(r,2000)); }
+  modal.classList.remove('show');
+}
+
+// ══════════════════════════════════════════
+//  THUMBNAILS
+// ══════════════════════════════════════════
+function buildThumbs() {
+  const strip=document.getElementById('thumbStrip'); strip.innerHTML='';
+  imageFiles.forEach((f,i)=>{
+    const wrap=document.createElement('div'); wrap.className='thumb-wrap'; wrap.id='thumb_'+i; wrap.title=f.name; wrap.onclick=()=>navigate(i-currentIndex);
+    const img=document.createElement('img'); img.className='thumb'; img.alt=f.name;
+    (async()=>{ try { img.src=URL.createObjectURL(await f.handle.getFile()); } catch{} })();
+    const num=document.createElement('span'); num.className='thumb-num'; num.textContent=i+1;
+    wrap.appendChild(img); wrap.appendChild(num); strip.appendChild(wrap);
+  });
+}
+function updateThumbs() {
+  imageFiles.forEach((f,i)=>{
+    const el=document.getElementById('thumb_'+i); if(!el) return;
+    el.classList.remove('active','done');
+    if (i===currentIndex) el.classList.add('active');
+    const d=data[f.name]; if (d&&d.langs.some(l=>l.text.trim())) el.classList.add('done');
+  });
+  const a=document.getElementById('thumb_'+currentIndex);
+  if (a) a.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════
+//  LOAD IMAGE
+// ══════════════════════════════════════════
+async function loadImage(index) {
+  if (index<0||index>=imageFiles.length) return;
+  currentIndex=index;
+  const f=imageFiles[index];
+  document.getElementById('fileName').textContent=f.name;
+  document.getElementById('fileCounter').textContent=`${index+1} / ${imageFiles.length}`;
+  const done=imageFiles.filter(ff=>data[ff.name]?.langs?.some(l=>l.text.trim())).length;
+  document.getElementById('progressFill').style.width=Math.round(done/imageFiles.length*100)+'%';
+  document.getElementById('progressLabel').textContent=`${done} / ${imageFiles.length} done`;
+
+  const img=document.getElementById('mainImage');
+  try {
+    contrast=100; brightness=100; panX=0; panY=0;
+    ['sliderContrast','sliderBright'].forEach(id=>document.getElementById(id).value=100);
+    document.getElementById('valContrast').textContent='100%'; document.getElementById('valBright').textContent='100%';
+    img.onload=()=>{ drawCanvas(); fitImage(); };
+    img.src=URL.createObjectURL(await f.handle.getFile());
+    img.style.display='block'; document.getElementById('noImageMsg').style.display='none';
+  } catch { img.style.display='none'; document.getElementById('noImageMsg').style.display='block'; }
+
+  const d=data[f.name]||emptyData(); data[f.name]=d;
+  rotation=d.rotation||0; fineRotation=d.fineRotation||0;
+  document.getElementById('sliderFineRot').value=fineRotation;
+  document.getElementById('valFineRot').textContent=fineRotation.toFixed(1)+'°';
+
+  for (let i=0;i<3;i++) {
+    document.getElementById('langCode'+i).value=d.langs[i]?.code||globalLangCodes[i]||'';
+    document.getElementById('text'+i).value=d.langs[i]?.text||'';
+    document.getElementById('notes'+i).value=d.langs[i]?.notes||'';
+    updateBadge(i); updateDot(i);
+  }
+  selActive=-1; renderRegions(); updateThumbs(); setStatus('loaded');
+}
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+function navigate(delta) {
+  const next=currentIndex+delta;
+  if (next<0||next>=imageFiles.length) return;
+  saveCurrentToMemory();
+  writeCropsToFolder(true);  // write any new crops silently before moving on
+  saveRoCrate(true);
+  loadImage(next);
+}
+function saveCurrentToMemory() {
+  if (!imageFiles.length) return;
+  const f=imageFiles[currentIndex], d=data[f.name]||emptyData();
+  d.rotation=rotation; d.fineRotation=fineRotation;
+  for (let i=0;i<3;i++) d.langs[i]={code:document.getElementById('langCode'+i).value.trim(),text:document.getElementById('text'+i).value,notes:document.getElementById('notes'+i).value.trim()};
+  data[f.name]=d;
+}
+
+// ══════════════════════════════════════════
+//  IMAGE TRANSFORM
+// ══════════════════════════════════════════
+function totalRot() { return rotation+fineRotation; }
+function applyTransform() {
+  const img=document.getElementById('mainImage');
+  img.style.transform=`translate(${panX}px,${panY}px) rotate(${totalRot()}deg) scale(${zoom/100})`;
+  img.style.filter=`contrast(${contrast}%) brightness(${brightness}%)`;
+  drawCanvas();
+}
+function applyZoom(v)     { zoom=parseInt(v); document.getElementById('valZoom').textContent=zoom+'%'; document.getElementById('sliderZoom').value=zoom; applyTransform(); }
+function applyContrast(v) { contrast=parseInt(v); document.getElementById('valContrast').textContent=contrast+'%'; applyTransform(); }
+function applyBright(v)   { brightness=parseInt(v); document.getElementById('valBright').textContent=brightness+'%'; applyTransform(); }
+function applyFineRotation(v) {
+  fineRotation=parseFloat(v); document.getElementById('valFineRot').textContent=fineRotation.toFixed(1)+'°';
+  saveCurrentToMemory(); applyTransform(); markDirty();
+}
+function rotateImage() {
+  rotation=(rotation+90)%360; saveCurrentToMemory(); fitImage(); markDirty();
+  // Write the rotated image back to disk so the file reflects the new orientation
+  (async()=>{
+    const f=imageFiles[currentIndex]; if(!f||!dirHandle) return;
+    try {
+      const imgEl=await loadImg(URL.createObjectURL(await f.handle.getFile()));
+      const r90=(rotation===90||rotation===270);
+      const cv=document.createElement('canvas');
+      cv.width  = r90 ? imgEl.naturalHeight : imgEl.naturalWidth;
+      cv.height = r90 ? imgEl.naturalWidth  : imgEl.naturalHeight;
+      const ctx=cv.getContext('2d');
+      ctx.translate(cv.width/2, cv.height/2);
+      ctx.rotate(rotation*Math.PI/180);
+      ctx.drawImage(imgEl, -imgEl.naturalWidth/2, -imgEl.naturalHeight/2);
+      const mime=/\.png$/i.test(f.name)?'image/png':'image/jpeg';
+      const blob=await new Promise(r=>cv.toBlob(r,mime,0.95));
+      const fh=await dirHandle.getFileHandle(f.name,{create:false});
+      const w=await fh.createWritable(); await w.write(blob); await w.close();
+      // Reload the thumbnail and main image from the updated file
+      const newUrl=URL.createObjectURL(await (await dirHandle.getFileHandle(f.name)).getFile());
+      document.getElementById('mainImage').src=newUrl;
+      const thumb=document.querySelector('#thumb_'+currentIndex+' img');
+      if(thumb) thumb.src=newUrl;
+      // Reset rotation state — the file is now the rotated version
+      rotation=0; saveCurrentToMemory();
+      document.getElementById('sliderFineRot').value=0;
+      document.getElementById('valFineRot').textContent='0.0°';
+      applyTransform(); fitImage();
+      toast('✅ Image saved rotated','ok',2000);
+    } catch(e){ toast('⚠️ Could not save rotated image: '+e.message,'warn',4000); }
+  })();
+}
+function resetView() {
+  zoom=100; contrast=100; brightness=100; rotation=0; fineRotation=0; panX=0; panY=0;
+  ['sliderZoom','sliderContrast','sliderBright'].forEach(id=>document.getElementById(id).value=100);
+  document.getElementById('sliderFineRot').value=0;
+  document.getElementById('valZoom').textContent='100%'; document.getElementById('valContrast').textContent='100%';
+  document.getElementById('valBright').textContent='100%'; document.getElementById('valFineRot').textContent='0.0°';
+  applyTransform();
+}
+function fitImage() {
+  const vp=document.getElementById('imageViewport'), img=document.getElementById('mainImage');
+  if (!img.naturalWidth) return;
+  const r90=(rotation===90||rotation===270);
+  zoom=Math.round(Math.min(vp.clientWidth/(r90?img.naturalHeight:img.naturalWidth), vp.clientHeight/(r90?img.naturalWidth:img.naturalHeight))*95);
+  panX=0; panY=0;
+  document.getElementById('sliderZoom').value=Math.min(400,Math.max(10,zoom));
+  document.getElementById('valZoom').textContent=zoom+'%';
+  applyTransform();
+}
+
+// ══════════════════════════════════════════
+//  POINTER EVENTS (pan + select)
+// ══════════════════════════════════════════
+const vp=document.getElementById('imageViewport');
+vp.addEventListener('wheel', e=>{ e.preventDefault(); zoom=Math.max(10,Math.min(400,zoom+(e.deltaY>0?-10:10))); applyZoom(zoom); }, {passive:false});
+vp.addEventListener('mousedown', e=>{ if(selectMode){startSel(e);}else{dragging=true; dragStart={x:e.clientX-panX,y:e.clientY-panY}; vp.classList.add('panning');} });
+vp.addEventListener('mousemove', e=>{ if(selectMode){updateSel(e);}else if(dragging){panX=e.clientX-dragStart.x; panY=e.clientY-dragStart.y; applyTransform();} });
+vp.addEventListener('mouseup',   e=>{ dragging=false; vp.classList.remove('panning'); if(selectMode) endSel(e); });
+vp.addEventListener('mouseleave',e=>{ dragging=false; vp.classList.remove('panning'); if(selectMode&&selStart) endSel(e); });
+
+// ══════════════════════════════════════════
+//  SELECT MODE
+// ══════════════════════════════════════════
+function toggleSelectMode() {
+  selectMode=!selectMode;
+  const btn=document.getElementById('btnSelMode'), lbl=document.getElementById('modeLabel');
+  btn.style.borderColor=selectMode?'var(--accent2)':'';
+  btn.style.color=selectMode?'var(--accent2)':'';
+  lbl.textContent=selectMode?'select mode — drag to draw region':'pan mode';
+  lbl.classList.toggle('sel',selectMode);
+  vp.classList.toggle('selecting', selectMode);
+  vp.style.cursor='';
+}
+
+// Convert viewport-relative px → original image px (undoes pan, scale, rotation)
+function vpToImg(vx, vy) {
+  const img=document.getElementById('mainImage');
+  const r=vp.getBoundingClientRect();
+  const cx=r.width/2, cy=r.height/2;
+  let px=(vx-cx-panX)/(zoom/100), py=(vy-cy-panY)/(zoom/100);
+  const ang=-totalRot()*Math.PI/180;
+  const rx=px*Math.cos(ang)-py*Math.sin(ang);
+  const ry=px*Math.sin(ang)+py*Math.cos(ang);
+  return { x:Math.round(rx+img.naturalWidth/2), y:Math.round(ry+img.naturalHeight/2) };
+}
+// Original image px → viewport-relative px
+function imgToVp(ix, iy) {
+  const img=document.getElementById('mainImage');
+  const r=vp.getBoundingClientRect();
+  let px=ix-img.naturalWidth/2, py=iy-img.naturalHeight/2;
+  const ang=totalRot()*Math.PI/180;
+  const rx=px*Math.cos(ang)-py*Math.sin(ang);
+  const ry=px*Math.sin(ang)+py*Math.cos(ang);
+  return { vx:rx*(zoom/100)+panX+r.width/2, vy:ry*(zoom/100)+panY+r.height/2 };
+}
+
+function startSel(e) { const r=vp.getBoundingClientRect(); selStart={vx:e.clientX-r.left,vy:e.clientY-r.top}; selCurrent={...selStart}; }
+function updateSel(e) { if(!selStart) return; const r=vp.getBoundingClientRect(); selCurrent={vx:e.clientX-r.left,vy:e.clientY-r.top}; drawCanvas(); }
+function endSel(e) {
+  if (!selStart) return;
+  const r=vp.getBoundingClientRect(); selCurrent={vx:e.clientX-r.left,vy:e.clientY-r.top};
+  const p1=vpToImg(selStart.vx,selStart.vy), p2=vpToImg(selCurrent.vx,selCurrent.vy);
+  const x=Math.min(p1.x,p2.x), y=Math.min(p1.y,p2.y);
+  const w=Math.abs(p2.x-p1.x), h=Math.abs(p2.y-p1.y);
+  if (w>5&&h>5) {
+    const img=document.getElementById('mainImage');
+    const d=data[imageFiles[currentIndex].name];
+    if (!d.regions) d.regions=[];
+    const reg={id:uid(), x:Math.max(0,x), y:Math.max(0,y), w:Math.min(w,img.naturalWidth), h:Math.min(h,img.naturalHeight)};
+    d.regions.push(reg);
+    // Write the crop file to disk immediately and save RO-Crate
+    (async()=>{
+      try {
+        const srcFile=await imageFiles[currentIndex].handle.getFile();
+        const imgEl=await loadImg(URL.createObjectURL(srcFile));
+        const cv=renderCropCanvas(imgEl,reg);
+        const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
+        const fn=cropFilename(imageFiles[currentIndex].name,reg.id);
+        const fh=await dirHandle.getFileHandle(fn,{create:true});
+        const wr=await fh.createWritable(); await wr.write(blob); await wr.close();
+      } catch(e){ console.warn('Could not write crop immediately',e); }
+      saveRoCrate(true);
+    })();
+    renderRegions(); markDirty();
+  }
+  selStart=null; selCurrent=null; drawCanvas();
+}
+
+// ══════════════════════════════════════════
+//  CANVAS OVERLAY
+// ══════════════════════════════════════════
+function drawCanvas() {
+  const canvas=document.getElementById('selCanvas');
+  const r=vp.getBoundingClientRect();
+  canvas.width=r.width; canvas.height=r.height;
+  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const img=document.getElementById('mainImage'); if(!img.naturalWidth) return;
+
+  const d=data[imageFiles[currentIndex]?.name];
+  if (d?.regions?.length) {
+    d.regions.forEach((reg,idx)=>{
+      const tl=imgToVp(reg.x,reg.y), tr=imgToVp(reg.x+reg.w,reg.y);
+      const br=imgToVp(reg.x+reg.w,reg.y+reg.h), bl=imgToVp(reg.x,reg.y+reg.h);
+      ctx.beginPath(); ctx.moveTo(tl.vx,tl.vy); ctx.lineTo(tr.vx,tr.vy); ctx.lineTo(br.vx,br.vy); ctx.lineTo(bl.vx,bl.vy); ctx.closePath();
+      const hi=idx===selActive;
+      ctx.strokeStyle=hi?'#f1c94e':'#4e9af1'; ctx.lineWidth=hi?2.5:1.5; ctx.setLineDash(hi?[]:[4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=hi?'rgba(241,201,78,0.1)':'rgba(78,154,241,0.07)'; ctx.fill();
+      ctx.fillStyle=hi?'#f1c94e':'#4e9af1'; ctx.font='bold 11px IBM Plex Mono,monospace'; ctx.fillText('R'+(idx+1),tl.vx+3,tl.vy+13);
+    });
+  }
+  if (selStart&&selCurrent) {
+    const x=Math.min(selStart.vx,selCurrent.vx), y=Math.min(selStart.vy,selCurrent.vy);
+    const w=Math.abs(selCurrent.vx-selStart.vx), h=Math.abs(selCurrent.vy-selStart.vy);
+    ctx.strokeStyle='#f1c94e'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]); ctx.strokeRect(x,y,w,h); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(241,201,78,0.07)'; ctx.fillRect(x,y,w,h);
+  }
+}
+
+// ══════════════════════════════════════════
+//  REGIONS UI
+// ══════════════════════════════════════════
+function renderRegions() {
+  const fname=imageFiles[currentIndex]?.name;
+  const d=data[fname];
+  const panel=document.getElementById('regionsPanel'), list=document.getElementById('regionList');
+  if (!d?.regions?.length) { panel.style.display='none'; return; }
+  panel.style.display='block'; list.innerHTML='';
+  d.regions.forEach((reg,idx)=>{
+    const hasEdited=!!reg.editedCropName;
+    const tag=document.createElement('div');
+    tag.className='region-tag'+(idx===selActive?' hi':'')+(hasEdited?' edited':'');
+    const cfn=cropFilename(fname,reg.id);
+    tag.title=`File: ${cfn}\nx:${reg.x} y:${reg.y} w:${reg.w} h:${reg.h}${hasEdited?'\nEdited: '+reg.editedCropName:''}`;
+    tag.innerHTML=`<span>R${idx+1}</span> <span style="opacity:.55">${reg.w}×${reg.h}</span> <span class="crop-status">${hasEdited?'✓ edited':'○ raw'}</span>`;
+    tag.onclick=()=>{ selActive=(idx===selActive)?-1:idx; renderRegions(); drawCanvas(); };
+    const del=document.createElement('button'); del.className='del-btn'; del.textContent='✕';
+    del.title='Remove region'; del.onclick=e=>{ e.stopPropagation(); deleteRegion(idx); };
+    tag.appendChild(del); list.appendChild(tag);
+  });
+}
+function deleteRegion(idx) {
+  const fname=imageFiles[currentIndex].name;
+  const d=data[fname];
+  const reg=d.regions[idx];
+  const fn=cropFilename(fname,reg.id);
+  d.regions.splice(idx,1);
+  if (selActive>=d.regions.length) selActive=-1;
+  // Delete the crop file from disk and save RO-Crate
+  (async()=>{
+    try { await dirHandle.removeEntry(fn); } catch(e){ /* file may not exist yet, that's fine */ }
+    // Also delete the edited version if one was imported
+    if (reg.editedCropName) {
+      try { await dirHandle.removeEntry(reg.editedCropName); } catch(e){}
+    }
+    saveRoCrate(true);
+  })();
+  renderRegions(); drawCanvas(); markDirty();
+}
+
+// ══════════════════════════════════════════
+//  CROP FILENAME HELPERS
+// ══════════════════════════════════════════
+function cropFilename(imageName, regionId) {
+  // Strip any leading ./ or path separators, strip extension
+  const bare = imageName.replace(/^\.[\\/]/, '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+  return `${bare}_crop_${regionId}.jpg`;
+}
+// Identifies files that were generated as crops — excluded from main image list
+function isCropFile(name) {
+  return /_crop_[a-z0-9]+\.(jpg|jpeg|png)$/i.test(name);
+}
+
+// Render a region from imgEl to a canvas (simple axis-aligned crop).
+function renderCropCanvas(imgEl, reg) {
+  const cv = document.createElement('canvas');
+  cv.width  = reg.w;
+  cv.height = reg.h;
+  cv.getContext('2d').drawImage(imgEl, reg.x, reg.y, reg.w, reg.h, 0, 0, reg.w, reg.h);
+  return cv;
+}
+
+// Write all crop JPEGs for all images into the project folder.
+// Only writes crops that don't already exist on disk (safe to call repeatedly).
+async function writeCropsToFolder(silent=true) {
+  if (!dirHandle) return;
+  let written=0;
+  for (const f of imageFiles) {
+    const d=data[f.name]; if (!d?.regions?.length) continue;
+    const missing=[];
+    for (const reg of d.regions) {
+      const fn=cropFilename(f.name,reg.id);
+      try { await dirHandle.getFileHandle(fn); }
+      catch { missing.push(reg); }
+    }
+    if (!missing.length) continue;
+    let imgEl; try { imgEl=await loadImg(URL.createObjectURL(await f.handle.getFile())); } catch { continue; }
+    for (const reg of missing) {
+      const fn=cropFilename(f.name,reg.id);
+      try {
+        const cv=renderCropCanvas(imgEl,reg);
+        const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
+        const fh=await dirHandle.getFileHandle(fn,{create:true});
+        const w=await fh.createWritable(); await w.write(blob); await w.close();
+        written++;
+      } catch(e) { console.warn('Could not write crop',fn,e); }
+    }
+  }
+  if (written>0 && !silent) toast(`✅ Wrote ${written} new crop file${written!==1?'s':''} to folder`,'ok',2500);
+  return written;
+}
+
+// ══════════════════════════════════════════
+//  CROP + ZIP DOWNLOAD
+// ══════════════════════════════════════════
+async function downloadCrops() {
+  if (!window.JSZip) {
+    await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+  }
+  const zip=new window.JSZip(); let total=0;
+  for (const f of imageFiles) {
+    const d=data[f.name]; if (!d?.regions?.length) continue;
+    let imgEl; try { imgEl=await loadImg(URL.createObjectURL(await f.handle.getFile())); } catch { continue; }
+    d.regions.forEach(reg=>{
+      const cv=renderCropCanvas(imgEl,reg);
+      zip.file(cropFilename(f.name,reg.id), cv.toDataURL('image/jpeg',0.92).split(',')[1], {base64:true});
+      total++;
+    });
+  }
+  if (!total) { toast('No regions defined yet.','warn'); return; }
+  toast(`Packaging ${total} crops…`,'ok',2000);
+  const blob=await zip.generateAsync({type:'blob'});
+  const folderName = dirHandle?.name || 'project';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${folderName}_crops.zip`; a.click();
+  toast(`✅ Downloaded ${total} crops — filenames contain region IDs`,'ok',3500);
+}
+function loadImg(src) { return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+
+// ══════════════════════════════════════════
+//  IMPORT EDITED CROPS
+// ══════════════════════════════════════════
+async function importCrops() {
+  if (!window.showDirectoryPicker) { toast('Requires Chrome/Edge 86+.','err',4000); return; }
+  let cropDirHandle;
+  try { cropDirHandle=await window.showDirectoryPicker({mode:'read'}); }
+  catch(e) { if(e.name!=='AbortError') toast('Could not open folder: '+e.message,'err'); return; }
+
+  // Build a lookup: regionId → { imageName, regionIdx }
+  const regionLookup={};
+  for (const f of imageFiles) {
+    const d=data[f.name]; if(!d?.regions?.length) continue;
+    d.regions.forEach((reg,idx)=>{ regionLookup[reg.id]={ imageName:f.name, regionIdx:idx }; });
+  }
+
+  let matched=0, skipped=0;
+  // Iterate flat — only top-level files, no subfolders needed
+  for await (const [name, handle] of cropDirHandle.entries()) {
+    if (handle.kind!=='file' || !/\.(jpg|jpeg|png)$/i.test(name)) continue;
+    // Match just the bare filename for the _crop_<id> pattern
+    const basename=name.split(/[\\/]/).pop();
+    const m=basename.match(/_crop_([a-z0-9]+)\.(jpg|jpeg|png)$/i);
+    if (!m) { skipped++; continue; }
+    const regionId=m[1];
+    if (!regionLookup[regionId]) { skipped++; continue; }
+
+    // Copy the file into the project folder so it physically exists there
+    try {
+      const srcFile=await handle.getFile();
+      const destHandle=await dirHandle.getFileHandle(basename,{create:true});
+      const writable=await destHandle.createWritable();
+      await writable.write(await srcFile.arrayBuffer());
+      await writable.close();
+    } catch(e) { console.warn('Could not copy crop file',basename,e); skipped++; continue; }
+
+    const {imageName, regionIdx}=regionLookup[regionId];
+    data[imageName].regions[regionIdx].editedCropName=basename;
+    matched++;
+  }
+
+  if (!matched) {
+    toast(`No matching crops found. Filenames must contain _crop_<id> (e.g. image_crop_abc123.jpg).`,'warn',5000);
+    return;
+  }
+  renderRegions(); markDirty(); saveRoCrate(true);
+  toast(`✅ Imported ${matched} edited crop${matched!==1?'s':''}${skipped?` (${skipped} skipped)`:''}`, 'ok', 4000);
+}
+
+// ══════════════════════════════════════════
+//  RO-CRATE BUILD + SAVE
+// ══════════════════════════════════════════
+function buildRoCrateJson() {
+  saveCurrentToMemory();
+  const now=new Date().toISOString(); crateInfo.dateModified=now.slice(0,10);
+  const graph=[];
+  graph.push({'@id':'ro-crate-metadata.json','@type':'CreativeWork','conformsTo':{'@id':'https://w3id.org/ro/crate/1.2'},'about':{'@id':'./'},'dateCreated':now});
+  // Collect all crop file IDs for hasPart on root
+  const cropIds=[];
+  for (const f of imageFiles) {
+    const d=data[f.name]; if(!d?.regions?.length) continue;
+    d.regions.forEach(reg=>{ cropIds.push({'@id':'./'+cropFilename(f.name,reg.id)}); });
+  }
+
+  const allParts=[...imageFiles.map(f=>({'@id':'./'+f.name})),...pdfSources.map(f=>({'@id':'./'+f.name})),...cropIds];
+  const root={
+    '@id':'./', '@type':['Dataset','RepositoryObject'],
+    'conformsTo':{'@id':'https://w3id.org/ldac/profile#Object'},
+    'name': crateInfo.title||crateInfo.identifier||'Transcription Collection',
+    'description': crateInfo.description||'Image transcription collection',
+    'dateCreated': crateInfo.dateCreated,
+    'dateModified': crateInfo.dateModified,
+    'license': {'@id':crateInfo.license},
+    'hasPart': allParts,
+  };
+  if (crateInfo.identifier)     root['identifier']       = crateInfo.identifier;
+  if (crateInfo.contentLang)    root['inLanguage']        = crateInfo.contentLang.split('|').map(s=>s.trim()).filter(Boolean);
+  if (crateInfo.subjectLang)    root['subjectLanguage']   = crateInfo.subjectLang.split('|').map(s=>s.trim()).filter(Boolean);
+  if (crateInfo.country)        root['locationCreated']   = crateInfo.country.split('|').map(s=>s.trim()).filter(Boolean);
+  if (crateInfo.originDate)     root['datePublished']     = crateInfo.originDate;
+  if (crateInfo.region)         root['spatialCoverage']   = crateInfo.region;
+  if (crateInfo.media)          root['encodingFormat']    = crateInfo.media;
+  if (crateInfo.dataCategories) root['dataCategories']    = crateInfo.dataCategories;
+  if (crateInfo.discourseType)  root['discourseType']     = crateInfo.discourseType;
+  if (crateInfo.dialect)        root['dialect']           = crateInfo.dialect;
+  if (crateInfo.langAsGiven)    root['languageAsGiven']   = crateInfo.langAsGiven;
+  // People
+  if (crateInfo.people?.length) {
+    root['contributor'] = crateInfo.people.map((p,i)=>({'@id':'#person'+i}));
+    crateInfo.people.forEach((p,i)=>{
+      graph.push({'@id':'#person'+i,'@type':'Person','givenName':p.firstName,'familyName':p.lastName,'name':(p.firstName+' '+p.lastName).trim(),'roleName':p.role});
+    });
+  }
+  graph.push(root);
+  graph.push({'@id':crateInfo.license,'@type':'CreativeWork','name':licName(crateInfo.license)});
+
+  for (const f of imageFiles) {
+    const d=data[f.name], al=d?.langs?.filter(l=>l.text.trim()||l.code.trim())||[];
+    const ent={'@id':'./'+f.name,'@type':['File','ImageObject'],'name':f.name,'encodingFormat':/\.png$/i.test(f.name)?'image/png':'image/jpeg'};
+    if (d?.rotation) ent.rotation=d.rotation;
+    if (d?.fineRotation) ent.fineRotation=d.fineRotation;
+    if (al.length) {
+      ent.transcript=al.map(l=>{ const t={'@type':'Transcript','text':l.text}; if(l.code) t.inLanguage=l.code; if(l.notes) t.description=l.notes; return t; });
+      const fl=al.find(l=>l.code); if(fl) ent.inLanguage=fl.code;
+    }
+    // hasPart: list of crop file entities derived from this image
+    if (d?.regions?.length) {
+      ent.hasPart=d.regions.map(r=>({'@id':'./'+cropFilename(f.name,r.id)}));
+      // also keep inline region coords for quick lookup
+      ent.region=d.regions.map(r=>{
+        const re={'@id':'./'+cropFilename(f.name,r.id),'x':r.x,'y':r.y,'width':r.w,'height':r.h};
+        return re;
+      });
+    }
+    graph.push(ent);
+
+    // Crop file entities — one per region
+    if (d?.regions?.length) {
+      d.regions.forEach(reg=>{
+        const cfn=cropFilename(f.name,reg.id);
+        const cropEnt={
+          '@id':'./'+cfn,
+          '@type':['File','ImageObject'],
+          'name':cfn,
+          'encodingFormat':'image/jpeg',
+          'description':`Crop region from ${f.name} (x:${reg.x} y:${reg.y} w:${reg.w} h:${reg.h})`,
+          'isPartOf':{'@id':'./'+f.name},
+          'cropOf':{'@id':'./'+f.name},
+          'spatialCoverage':{'@type':'Place','geo':{'@type':'GeoShape','box':`${reg.x},${reg.y} ${reg.x+reg.w},${reg.y+reg.h}`}},
+        };
+        if (reg.editedCropName) {
+          cropEnt['editedVersion']={'@id':'./'+reg.editedCropName};
+          // also add the edited file as its own entity
+          graph.push({
+            '@id':'./'+reg.editedCropName,
+            '@type':['File','ImageObject'],
+            'name':reg.editedCropName,
+            'encodingFormat':'image/jpeg',
+            'description':`Edited version of crop ${cfn}`,
+            'isVersionOf':{'@id':'./'+cfn},
+            'isPartOf':{'@id':'./'+f.name},
+          });
+        }
+        graph.push(cropEnt);
+      });
+    }
+  }
+  for (const pdf of pdfSources) {
+    const base=pdf.name.replace(/\.pdf$/i,'');
+    const pages=imageFiles.filter(f=>f.name.startsWith(base+'_p')).map(f=>({'@id':'./'+f.name}));
+    graph.push({'@id':'./'+pdf.name,'@type':['File'],'name':pdf.name,'encodingFormat':'application/pdf','description':'Original PDF source document',...(pages.length?{isSourceOf:pages}:{})});
+  }
+  return {'@context':['https://w3id.org/ro/crate/1.2/context',{'@vocab':'http://schema.org/'},'http://purl.archive.org/language-data-commons/context.json','https://w3id.org/ldac/context'],'@graph':graph};
+}
+function licName(l) { return l.includes('by/4')?'CC BY 4.0':l.includes('by-sa')?'CC BY-SA 4.0':l.includes('by-nc')?'CC BY-NC 4.0':l.includes('zero')?'CC0 1.0':'License'; }
+
+async function saveRoCrate(silent=false) {
+  if (!dirHandle) { toast('No folder open.','warn'); return; }
+  await writeCropsToFolder(true);   // ensure crop files exist on disk first
+  const js=JSON.stringify(buildRoCrateJson(),null,2);
+  if (window.showDirectoryPicker&&dirHandle) {
+    try { const fh=await dirHandle.getFileHandle(RO_CRATE_FILENAME,{create:true}), w=await fh.createWritable(); await w.write(js); await w.close(); isDirty=false; setStatus('saved'); if(!silent) toast('✅ ro-crate-metadata.json saved','ok'); updateThumbs(); return; }
+    catch(e) { if(e.name==='NotAllowedError') toast('Permission denied.','warn',4000); }
+  }
+  document.getElementById('jsonOutput').value=js; document.getElementById('jsonModal').classList.add('show');
+}
+
+// ══════════════════════════════════════════
+//  CRATE INFO MODAL
+// ══════════════════════════════════════════
+const CRATE_FIELDS = {
+  mIdentifier:'identifier', mTitle:'title', mDesc:'description',
+  mContentLang:'contentLang', mSubjectLang:'subjectLang', mCountry:'country',
+  mOriginDate:'originDate', mRegion:'region', mMedia:'media',
+  mDataCategories:'dataCategories', mDiscourseType:'discourseType',
+  mDialect:'dialect', mLangAsGiven:'langAsGiven'
+};
+function showCrateInfo() {
+  Object.entries(CRATE_FIELDS).forEach(([id,key])=>{ const el=document.getElementById(id); if(el) el.value=crateInfo[key]||''; });
+  document.getElementById('mLicense').value=crateInfo.license;
+  renderPersonRows();
+  document.getElementById('crateModal').classList.add('show');
+}
+function closeCrateModal() { document.getElementById('crateModal').classList.remove('show'); }
+function saveCrateInfo() {
+  Object.entries(CRATE_FIELDS).forEach(([id,key])=>{ const el=document.getElementById(id); if(el) crateInfo[key]=el.value.trim(); });
+  crateInfo.license=document.getElementById('mLicense').value;
+  // Read people rows
+  crateInfo.people=[];
+  document.querySelectorAll('#personRows .person-row').forEach(row=>{
+    const role=row.querySelector('.p-role').value.trim();
+    const first=row.querySelector('.p-first').value.trim();
+    const last=row.querySelector('.p-last').value.trim();
+    if (role||first||last) crateInfo.people.push({role,firstName:first,lastName:last});
+  });
+  closeCrateModal(); markDirty(); toast('Metadata saved','ok');
+}
+
+function renderPersonRows() {
+  const container=document.getElementById('personRows'); container.innerHTML='';
+  const people=crateInfo.people.length?crateInfo.people:[{role:'',firstName:'',lastName:''}];
+  people.forEach((p,i)=>{ container.appendChild(makePersonRow(p,i)); });
+}
+function makePersonRow(p={},i=0) {
+  const row=document.createElement('div');
+  row.className='person-row';
+  row.style.cssText='display:grid;grid-template-columns:160px 1fr 1fr 28px;gap:4px 8px;align-items:center;';
+  const roleSelect=document.createElement('select');
+  roleSelect.className='p-role';
+  roleSelect.style.cssText='background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 6px;outline:none;';
+  const roles=['','Researcher','Collector','Depositor','Annotator','Translator','Transcriber','Consultant','Speaker','Singer','Interviewer','Interviewee','Photographer','Recorder','Author','Editor','Other'];
+  roles.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r||'— select role —'; if(p.role===r) o.selected=true; roleSelect.appendChild(o); });
+  const fInput=document.createElement('input'); fInput.className='p-first'; fInput.placeholder='First name'; fInput.value=p.firstName||''; fInput.style.cssText='background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 6px;outline:none;';
+  const lInput=document.createElement('input'); lInput.className='p-last'; lInput.placeholder='Last name'; lInput.value=p.lastName||''; lInput.style.cssText=fInput.style.cssText;
+  const del=document.createElement('button'); del.className='del-btn'; del.textContent='✕'; del.title='Remove person';
+  del.onclick=()=>{ row.remove(); if(!document.querySelectorAll('#personRows .person-row').length) addPersonRow(); };
+  row.appendChild(roleSelect); row.appendChild(fInput); row.appendChild(lInput); row.appendChild(del);
+  return row;
+}
+function addPersonRow() {
+  document.getElementById('personRows').appendChild(makePersonRow({},document.querySelectorAll('#personRows .person-row').length));
+}
+function closeJsonModal() { document.getElementById('jsonModal').classList.remove('show'); }
+function copyJson() { const el=document.getElementById('jsonOutput'); el.select(); document.execCommand('copy'); toast('JSON copied','ok'); }
+
+// ══════════════════════════════════════════
+//  DIRTY / STATUS
+// ══════════════════════════════════════════
+function markDirty() { isDirty=true; setStatus('dirty'); scheduleAutoSave(); }
+function scheduleAutoSave() { clearTimeout(autoSaveTimer); autoSaveTimer=setTimeout(()=>{ saveCurrentToMemory(); saveRoCrate(true); },3000); }
+function setStatus(s) {
+  document.getElementById('statusDot').className='status-dot '+(s==='saved'?'saved':s==='dirty'?'dirty':'');
+  document.getElementById('statusLabel').textContent=s==='saved'?'saved':s==='dirty'?'unsaved changes':s==='loaded'?'loaded':s;
+}
+
+// ══════════════════════════════════════════
+//  TABS / LANG
+// ══════════════════════════════════════════
+let stackView=false;
+function toggleStackView() {
+  stackView=!stackView;
+  const pane=document.querySelector('.text-pane');
+  const btn=document.getElementById('btnStackToggle');
+  pane.classList.toggle('stacked',stackView);
+  btn.textContent=stackView?'☰ Tabs':'⊟ Stack';
+  btn.title=stackView?'Switch back to tab view':'Switch to stacked view — all languages visible at once';
+  if (!stackView) {
+    for(let i=0;i<3;i++) document.getElementById('panel'+i).classList.toggle('active',i===activeTab);
+  }
+}
+function switchTab(i) {
+  if(stackView) return; // tabs disabled in stack mode
+  for(let j=0;j<3;j++){document.getElementById('tab'+j).classList.toggle('active',j===i);document.getElementById('panel'+j).classList.toggle('active',j===i);} activeTab=i;
+}
+function updateBadge(i) {
+  const v=document.getElementById('langCode'+i).value.trim()||'—';
+  document.getElementById('badge'+i).textContent=v;
+  document.getElementById('pill'+i).textContent=v;
+  document.getElementById('stackBadge'+i).textContent=v;
+}
+function updateDot(i)  { document.getElementById('dot'+i).classList.toggle('show',document.getElementById('text'+i).value.trim().length>0); }
+function onTextChange(i){ updateDot(i); markDirty(); }
+function onLangChange(i) {
+  const nv=document.getElementById('langCode'+i).value.trim(), old=globalLangCodes[i]; globalLangCodes[i]=nv;
+  for (const f of imageFiles) { const d=data[f.name]; if(!d) continue; if(d.langs[i].code===old) d.langs[i].code=nv; }
+  saveCurrentToMemory();
+  const cd=data[imageFiles[currentIndex]?.name]; if(cd) document.getElementById('langCode'+i).value=cd.langs[i].code;
+  updateBadge(i); markDirty();
+}
+
+// ══════════════════════════════════════════
+//  UI
+// ══════════════════════════════════════════
+function showEditor() {
+  document.getElementById('welcome').style.display='none';
+  document.getElementById('editor').style.display='flex';
+  ['btnSave','btnDownloadCrops','btnImportCrops','btnCrateInfo'].forEach(id=>document.getElementById(id).disabled=false);
+  setStatus('loaded');
+}
+let toastTimer;
+function toast(msg,type='',dur=2500) {
+  const el=document.getElementById('toast'); el.textContent=msg; el.className='show '+(type||'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
+}
+let isLight=true;
+function toggleTheme() {
+  isLight=!isLight; document.documentElement.classList.toggle('light',isLight);
+  const btn=document.getElementById('btnTheme');
+  btn.textContent=isLight?'🌙 Dark':'☀️ Light';
+  btn.title=isLight?'Switch to dark mode':'Switch to light mode';
+}
+document.documentElement.classList.add('light');
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('btnTheme');
+  if(btn) btn.textContent='🌙 Dark';
+});
+function showHelp()  { document.getElementById('helpModal').classList.add('show'); }
+function closeHelp() { document.getElementById('helpModal').classList.remove('show'); }
+
+// ══════════════════════════════════════════
+//  KEYBOARD
+// ══════════════════════════════════════════
+document.addEventListener('keydown', e=>{
+  if (e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+  if (e.key==='ArrowRight'||e.key==='ArrowDown'){ navigate(1); e.preventDefault(); }
+  if (e.key==='ArrowLeft' ||e.key==='ArrowUp')  { navigate(-1); e.preventDefault(); }
+  if (e.key==='1') switchTab(0); if(e.key==='2') switchTab(1); if(e.key==='3') switchTab(2);
+  if (e.key==='Escape'&&selectMode) toggleSelectMode();
+});
+document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='s'){ saveRoCrate(); e.preventDefault(); } });
+window.addEventListener('resize', ()=>drawCanvas());
+</script>
+</body>
+</html>
