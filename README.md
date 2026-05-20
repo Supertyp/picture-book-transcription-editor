@@ -25,7 +25,7 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 - **Fit** button to reset the view.
 
 ### Transcription
-- Three language tabs per image, each with an ISO 639-3 language code field (e.g. `eng`, `tok`, `fra`). Language codes are global — set once and applied to all images.
+- Three language tabs per image, each with a language field. Language is global — set once and applied to all images.
 - A free-text **Notes** field per language for uncertain readings or editorial comments.
 - **Stacked view** toggle to see all three languages at once.
 - Thumbnail strip at the bottom for quick navigation; completed images are highlighted in green.
