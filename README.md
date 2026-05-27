@@ -15,6 +15,8 @@ A single-file browser-based tool for transcribing text from historical images an
 
 Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to three languages per image, draw bounding boxes around areas of interest (stamps, seals, drawings), and export or import edited crops. Everything is tracked in a standard `ro-crate-metadata.json` file written directly into your project folder.
 
+![Screenshot of the editor showing a handwritten picture-book cover with transcription panes and image controls](docs/screenshot.png)
+
 ## Getting started
 
 1. Open `picture-book-transcription-editor-v02.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
