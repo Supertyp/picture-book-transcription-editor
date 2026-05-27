@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image Transcription Editor</title>
+<title>Image Transcription Editor v02</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
@@ -209,6 +209,26 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* FOLDER AUDIT */
+  #folderAudit { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .audit-header { padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .audit-folder-name { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--accent2); }
+  .audit-summary { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .audit-header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .audit-list { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 2px; }
+  .audit-row { display: grid; grid-template-columns: 24px auto auto 1fr auto; align-items: center; gap: 10px; padding: 7px 12px; border-radius: var(--radius); border: 1px solid transparent; transition: background .1s; }
+  .audit-row:hover:not(.system-row) { background: var(--surface2); }
+  .audit-row.system-row { opacity: 0.45; }
+  .audit-icon { font-size: 14px; text-align: center; }
+  .audit-filename { font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .audit-badge { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+  .audit-badge.in-crate  { background: rgba(78,241,160,0.12); color: var(--accent3); border: 1px solid rgba(78,241,160,0.25); }
+  .audit-badge.new-file  { background: rgba(241,201,78,0.12); color: var(--accent2); border: 1px solid rgba(241,201,78,0.3); }
+  .audit-badge.not-tracked { background: rgba(107,120,160,0.12); color: var(--text-dim); border: 1px solid var(--border); }
+  .audit-badge.system    { background: rgba(107,120,160,0.08); color: var(--text-dim); border: 1px solid transparent; font-weight: 400; }
+  .audit-action { min-width: 70px; text-align: right; }
+  .audit-add-btn { font-size: 11px; padding: 3px 10px; }
 </style>
 </head>
 <body>
@@ -269,6 +289,18 @@
     </div>
 
   </div>
+</div>
+
+<div id="folderAudit">
+  <div class="audit-header">
+    <span class="audit-folder-name" id="auditFolderName">—</span>
+    <span class="audit-summary" id="auditSummary"></span>
+    <div class="audit-header-actions">
+      <button class="btn primary" id="btnAddAllMissing" onclick="auditAddAll()">+ Add all missing</button>
+      <button class="btn success" onclick="auditContinue()">Continue to Editor →</button>
+    </div>
+  </div>
+  <div id="auditList" class="audit-list"></div>
 </div>
 
 <div id="editor">
@@ -540,6 +572,10 @@
 //  STATE
 // ══════════════════════════════════════════
 let dirHandle = null, imageFiles = [], currentIndex = 0;
+let auditCrateLoadedFiles = new Set();
+let auditHandleMap = {};
+let registeredDataFiles = [];
+let folderHasExistingCrate = false;
 let isDirty = false, autoSaveTimer = null;
 let pdfSources = [], globalLangCodes = ['','',''];
 const RO_CRATE_FILENAME = 'ro-crate-metadata.json';
@@ -582,10 +618,11 @@ async function openFolder() {
   try { dirHandle = await window.showDirectoryPicker({ mode:'readwrite' }); }
   catch(e) { if (e.name!=='AbortError') toast('Could not open folder: '+e.message,'err'); return; }
 
-  imageFiles=[]; pdfSources=[]; data={};
+  imageFiles=[]; pdfSources=[]; data={}; registeredDataFiles=[]; folderHasExistingCrate=false;
   for await (const [name,handle] of dirHandle.entries()) {
     if (handle.kind==='file' && /\.(jpg|jpeg|png)$/i.test(name) && name!=='ro-crate-preview.jpg' && !isCropFile(name)) imageFiles.push({name,handle});
     if (handle.kind==='file' && /\.pdf$/i.test(name)) pdfSources.push({name,handle});
+    if (handle.kind==='file' && name===RO_CRATE_FILENAME) folderHasExistingCrate=true;
   }
   for (const pdf of pdfSources) await extractPdfPages(pdf);
   if (pdfSources.length) {
@@ -597,9 +634,23 @@ async function openFolder() {
   imageFiles.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
 
   await tryLoadRoCrate();
+  // Snapshot which filenames were in the loaded crate BEFORE adding empty entries
+  auditCrateLoadedFiles = new Set(Object.keys(data));
   for (const f of imageFiles) if (!data[f.name]) data[f.name]=emptyData();
 
-  buildThumbs(); currentIndex=0; showEditor(); await loadImage(0);
+  buildThumbs(); currentIndex=0;
+
+  // Audit gate: only when an existing RO-Crate was found in the folder
+  if (folderHasExistingCrate) {
+    const allFolderFiles = [];
+    for await (const [name,handle] of dirHandle.entries())
+      if (handle.kind==='file') allFolderFiles.push({name,handle});
+    allFolderFiles.sort((a,b)=>a.name.localeCompare(b.name));
+    buildAuditScreen(allFolderFiles);
+    showAudit();
+  } else {
+    showEditor(); await loadImage(0);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1147,6 +1198,140 @@ async function importCrops() {
 }
 
 // ══════════════════════════════════════════
+//  FOLDER AUDIT
+// ══════════════════════════════════════════
+function showAudit() {
+  document.getElementById('welcome').style.display='none';
+  document.getElementById('folderAudit').style.display='flex';
+  document.getElementById('editor').style.display='none';
+}
+function auditContinue() {
+  document.getElementById('folderAudit').style.display='none';
+  if (!imageFiles.length) { toast('No images found.','warn'); return; }
+  showEditor();
+  loadImage(currentIndex >= 0 && currentIndex < imageFiles.length ? currentIndex : 0);
+}
+async function auditAddAll() {
+  const firstNew = imageFiles.find(f => !auditCrateLoadedFiles.has(f.name));
+  if (!firstNew) { auditContinue(); return; }
+  imageFiles.forEach(f => auditCrateLoadedFiles.add(f.name));
+  document.getElementById('folderAudit').style.display='none';
+  showEditor();
+  await loadImage(imageFiles.indexOf(firstNew));
+  saveRoCrate(true);
+}
+async function auditAddFile(name) {
+  auditCrateLoadedFiles.add(name);
+  const safeId = 'auditRow_' + name.replace(/[^a-zA-Z0-9_-]/g,'_');
+  const row = document.getElementById(safeId);
+  if (row) {
+    const badge = row.querySelector('.audit-badge');
+    if (badge) { badge.className='audit-badge in-crate'; badge.textContent='✓ in RO-Crate'; }
+    const action = row.querySelector('.audit-action');
+    if (action) action.innerHTML='';
+  }
+  refreshAuditSummary();
+  document.getElementById('folderAudit').style.display='none';
+  showEditor();
+  const idx = imageFiles.findIndex(f => f.name === name);
+  await loadImage(idx >= 0 ? idx : 0);
+  saveRoCrate(true);
+}
+function auditRegisterFile(name) {
+  const handle = auditHandleMap[name];
+  if (!handle || registeredDataFiles.find(f => f.name===name)) return;
+  registeredDataFiles.push({name, handle});
+  auditCrateLoadedFiles.add(name);
+  const safeId = 'auditRow_' + name.replace(/[^a-zA-Z0-9_-]/g,'_');
+  const row = document.getElementById(safeId);
+  if (row) {
+    const badge = row.querySelector('.audit-badge');
+    if (badge) { badge.className='audit-badge in-crate'; badge.textContent='✓ registered'; }
+    const action = row.querySelector('.audit-action');
+    if (action) action.innerHTML='';
+  }
+  refreshAuditSummary();
+  markDirty();
+  toast('📄 ' + name + ' registered as data file','ok');
+}
+function refreshAuditSummary() {
+  const allRows = document.querySelectorAll('#auditList .audit-row');
+  const nonSys  = document.querySelectorAll('#auditList .audit-row:not(.system-row)');
+  let missing = 0;
+  nonSys.forEach(r => {
+    if (r.querySelector('.audit-badge.new-file') || r.querySelector('.audit-badge.not-tracked')) missing++;
+  });
+  document.getElementById('auditSummary').textContent =
+    allRows.length + ' files \xb7 ' + (nonSys.length - missing) + ' in RO-Crate \xb7 ' + missing + ' not in crate';
+  const imgMissing = imageFiles.filter(f => !auditCrateLoadedFiles.has(f.name)).length;
+  const btn = document.getElementById('btnAddAllMissing');
+  btn.disabled = imgMissing === 0;
+  btn.textContent = imgMissing > 0 ? '+ Add all missing (' + imgMissing + ')' : 'All accounted for';
+}
+function buildAuditScreen(allFolderFiles) {
+  auditHandleMap = {};
+  const imageFileNames = new Set(imageFiles.map(f => f.name));
+  const pdfFileNames   = new Set(pdfSources.map(f => f.name));
+  const list = document.getElementById('auditList');
+  list.innerHTML = '';
+  let inCrate = 0, missing = 0;
+
+  for (const {name, handle} of allFolderFiles) {
+    auditHandleMap[name] = handle;
+    const safeId = 'auditRow_' + name.replace(/[^a-zA-Z0-9_-]/g,'_');
+    let icon, badgeCls, badgeText, actionHtml='', isSystem=false;
+
+    if (name === RO_CRATE_FILENAME || name === 'ro-crate-preview.jpg') {
+      icon='🔒'; badgeCls='system'; badgeText='system'; isSystem=true;
+    } else if (isCropFile(name)) {
+      icon='✂️'; badgeCls='system'; badgeText='crop'; isSystem=true;
+    } else if (imageFileNames.has(name)) {
+      icon='🖼️';
+      if (auditCrateLoadedFiles.has(name)) {
+        badgeCls='in-crate'; badgeText='✓ in RO-Crate'; inCrate++;
+      } else {
+        badgeCls='new-file'; badgeText='✕ new file'; missing++;
+        actionHtml='<button class="btn audit-add-btn" data-fname="' + name.replace(/"/g,'&quot;') + '" onclick="auditAddFile(this.dataset.fname)">+ Open</button>';
+      }
+    } else if (pdfFileNames.has(name)) {
+      icon='📋';
+      if (auditCrateLoadedFiles.has(name)) {
+        badgeCls='in-crate'; badgeText='✓ in RO-Crate'; inCrate++;
+      } else {
+        badgeCls='new-file'; badgeText='✕ new file'; missing++;
+        actionHtml='<button class="btn audit-add-btn" data-fname="' + name.replace(/"/g,'&quot;') + '" onclick="auditAddFile(this.dataset.fname)">+ Open</button>';
+      }
+    } else {
+      icon='📄';
+      if (auditCrateLoadedFiles.has(name)) {
+        badgeCls='in-crate'; badgeText='✓ in RO-Crate'; inCrate++;
+      } else {
+        badgeCls='not-tracked'; badgeText='not in crate'; missing++;
+        actionHtml='<button class="btn audit-add-btn" data-fname="' + name.replace(/"/g,'&quot;') + '" onclick="auditRegisterFile(this.dataset.fname)">Register</button>';
+      }
+    }
+
+    const row = document.createElement('div');
+    row.id = safeId;
+    row.className = 'audit-row' + (isSystem ? ' system-row' : '');
+    row.innerHTML =
+      '<span class="audit-icon">' + icon + '</span>' +
+      '<span class="audit-filename" title="' + name + '">' + name + '</span>' +
+      '<span class="audit-badge ' + badgeCls + '">' + badgeText + '</span>' +
+      '<span class="audit-action">' + actionHtml + '</span>';
+    list.appendChild(row);
+  }
+
+  document.getElementById('auditFolderName').textContent = '📂 ' + (dirHandle ? dirHandle.name : 'folder') + '/';
+  document.getElementById('auditSummary').textContent =
+    allFolderFiles.length + ' files \xb7 ' + inCrate + ' in RO-Crate \xb7 ' + missing + ' not in crate';
+  const imgMissing = imageFiles.filter(f => !auditCrateLoadedFiles.has(f.name)).length;
+  const btn = document.getElementById('btnAddAllMissing');
+  btn.disabled = imgMissing === 0;
+  btn.textContent = imgMissing > 0 ? '+ Add all missing (' + imgMissing + ')' : 'All accounted for';
+}
+
+// ══════════════════════════════════════════
 //  RO-CRATE BUILD + SAVE
 // ══════════════════════════════════════════
 function buildRoCrateJson() {
@@ -1160,7 +1345,7 @@ function buildRoCrateJson() {
     d.regions.forEach(reg=>{ cropIds.push({'@id':'./'+cropFilename(f.name,reg.id)}); });
   }
 
-  const allParts=[...imageFiles.map(f=>({'@id':'./'+f.name})),...pdfSources.map(f=>({'@id':'./'+f.name})),...cropIds];
+  const allParts=[...imageFiles.map(f=>({'@id':'./'+f.name})),...pdfSources.map(f=>({'@id':'./'+f.name})),...cropIds,...registeredDataFiles.map(f=>({'@id':'./'+f.name}))];
   const root={
     '@id':'./', '@type':['Dataset','RepositoryObject'],
     'conformsTo':{'@id':'https://w3id.org/ldac/profile#Object'},
@@ -1247,6 +1432,10 @@ function buildRoCrateJson() {
     const base=pdf.name.replace(/\.pdf$/i,'');
     const pages=imageFiles.filter(f=>f.name.startsWith(base+'_p')).map(f=>({'@id':'./'+f.name}));
     graph.push({'@id':'./'+pdf.name,'@type':['File'],'name':pdf.name,'encodingFormat':'application/pdf','description':'Original PDF source document',...(pages.length?{isSourceOf:pages}:{})});
+  }
+  for (const f of registeredDataFiles) {
+    if (!graph.find(n=>n['@id']==='./'+f.name))
+      graph.push({'@id':'./'+f.name,'@type':'File','name':f.name,'description':'Data file registered from project folder'});
   }
   return {'@context':['https://w3id.org/ro/crate/1.2/context',{'@vocab':'http://schema.org/'},'http://purl.archive.org/language-data-commons/context.json','https://w3id.org/ldac/context'],'@graph':graph};
 }
@@ -1372,6 +1561,7 @@ function onLangChange(i) {
 // ══════════════════════════════════════════
 function showEditor() {
   document.getElementById('welcome').style.display='none';
+  document.getElementById('folderAudit').style.display='none';
   document.getElementById('editor').style.display='flex';
   ['btnSave','btnDownloadCrops','btnImportCrops','btnCrateInfo'].forEach(id=>document.getElementById(id).disabled=false);
   setStatus('loaded');

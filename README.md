@@ -2,16 +2,25 @@
 
 A single-file browser-based tool for transcribing text from historical images and marking regions of interest, with all metadata saved as a native [RO-Crate](https://www.researchobject.org/ro-crate/).
 
+## Versions
+
+| File | Version | What it is |
+|---|---|---|
+| `picture-book-transcription-editor-v02.html` | **v02 — current** | Full feature set including Folder Audit |
+| `picture-book-transcription-editor.html` | v01 | Original release; all core features, no audit screen |
+
+**Use v02** unless you have a specific reason to stay on v01. The two files are independent — no installation, no shared state.
+
 ## What it does
 
 Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to three languages per image, draw bounding boxes around areas of interest (stamps, seals, drawings), and export or import edited crops. Everything is tracked in a standard `ro-crate-metadata.json` file written directly into your project folder.
 
 ## Getting started
 
-1. Open `picture-book-transcription-editor.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
+1. Open `picture-book-transcription-editor-v02.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
 2. Click **Open Folder** and select the folder containing your images or PDFs.
    - PDFs are split into one JPEG per page automatically (requires an internet connection the first time, to load the PDF.js library).
-   - If a `ro-crate-metadata.json` already exists in the folder, your previous work is restored instantly.
+   - If a `ro-crate-metadata.json` already exists in the folder, the **Folder Audit** screen appears (see below) so you can catch any files added since the last session.
 3. Transcribe, annotate, and save.
 
 > Firefox and Safari can open the tool and edit text, but cannot write files directly — you would need to copy the generated JSON manually.
@@ -23,6 +32,7 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 - **Rotate 90°** for images captured sideways.
 - **Pan** by clicking and dragging anywhere on the image; scroll wheel zooms.
 - **Fit** button to reset the view.
+- **Dark / Light theme** toggle in the toolbar.
 
 ### Transcription
 - Three language tabs per image, each with a language field. Language is global — set once and applied to all images.
@@ -46,7 +56,31 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 - A status indicator (dot + label) shows whether the file is up to date or has unsaved changes.
 
 ### RO-Crate output
-All data is written to `ro-crate-metadata.json` in the open [RO-Crate 1.1](https://www.researchobject.org/ro-crate/specification/1.1/) format. The file records every image, transcription, region, crop and edited file with full provenance. It can be read by any RO-Crate-compatible tool and shared or archived alongside the images.
+All data is written to `ro-crate-metadata.json` in the open [RO-Crate 1.1/1.2](https://www.researchobject.org/ro-crate/) format. The file records every image, transcription, region, crop and edited file with full provenance. It can be read by any RO-Crate-compatible tool and shared or archived alongside the images.
+
+---
+
+## What's new in v02
+
+### Folder Audit screen
+When you reopen a folder that already has a `ro-crate-metadata.json`, v02 shows a **Folder Audit** screen before entering the editor. It lists every file in the folder and flags anything that's missing from the existing crate — useful when new images have been added to the folder between sessions.
+
+Each file in the audit list shows its type (image, PDF, crop, system, data), its crate status, and an action if relevant:
+
+| File type | Status badges | Action |
+|---|---|---|
+| Images / PDFs already in crate | ✓ in RO-Crate (green) | — |
+| Images / PDFs not yet in crate | ✕ new file (amber) | **+ Open** — adds to editor and saves |
+| Other data files not in crate | not in crate (dim) | **Register** — adds as `hasPart` entity in crate |
+| Crop files, `ro-crate-metadata.json` | system / crop (dim) | — |
+
+**+ Add all missing** in the header adds every untracked image/PDF at once.  
+**Continue to Editor →** skips the audit and goes straight to the editor.
+
+### Registered data files
+Via the Folder Audit screen, arbitrary non-image files (PDFs, audio, spreadsheets, etc.) can be **registered** into the RO-Crate as bare `hasPart` file entities. This allows a project folder containing mixed-type materials to produce a complete crate manifest.
+
+---
 
 ## Keyboard shortcuts
 
@@ -68,3 +102,4 @@ Requires **Chrome or Edge 86+** for the [File System Access API](https://develop
 Everything runs client-side. The only external resources loaded are:
 - [IBM Plex fonts](https://fonts.google.com/specimen/IBM+Plex+Mono) (Google Fonts, for the UI)
 - [PDF.js](https://mozilla.github.io/pdf.js/) (loaded on demand when a PDF is opened)
+- [JSZip](https://stuk.github.io/jszip/) (loaded on demand when downloading crops as a ZIP)
