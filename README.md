@@ -6,10 +6,11 @@ A single-file browser-based tool for transcribing text from historical images an
 
 | File | Version | What it is |
 |---|---|---|
-| `picture-book-transcription-editor-v02.html` | **v02 — current** | Full feature set including Folder Audit |
+| `picture-book-transcription-editor-v03.html` | **v03 — current** | Right-side non-blocking Item Metadata panel |
+| `picture-book-transcription-editor-v02.html` | v02 | Full feature set including Folder Audit |
 | `picture-book-transcription-editor.html` | v01 | Original release; all core features, no audit screen |
 
-**Use v02** unless you have a specific reason to stay on v01. The two files are independent — no installation, no shared state.
+**Use v03** unless you have a specific reason to stay on an earlier version. The files are independent — no installation, no shared state.
 
 ## What it does
 
@@ -19,7 +20,7 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 
 ## Getting started
 
-1. Open `picture-book-transcription-editor-v02.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
+1. Open `picture-book-transcription-editor-v03.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
 2. Click **Open Folder** and select the folder containing your images or PDFs.
    - PDFs are split into one JPEG per page automatically (requires an internet connection the first time, to load the PDF.js library).
    - If a `ro-crate-metadata.json` already exists in the folder, the **Folder Audit** screen appears (see below) so you can catch any files added since the last session.
@@ -61,6 +62,15 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 All data is written to `ro-crate-metadata.json` in the open [RO-Crate 1.1/1.2](https://www.researchobject.org/ro-crate/) format. The file records every image, transcription, region, crop and edited file with full provenance. It can be read by any RO-Crate-compatible tool and shared or archived alongside the images.
 
 ---
+
+## What's new in v03
+
+### Item Metadata panel opens on the right
+The **ℹ️ Crate Info** / Item Metadata dialog no longer opens as a centred modal with a darkened overlay. Instead it slides in as a panel anchored to the right side of the screen:
+
+- The background is **not dimmed**, so the image panel on the left remains fully visible and usable while the form is open.
+- Clicks on the image or any other part of the interface **pass straight through** — you can pan, zoom, and read the image without closing the panel first.
+- Close the panel with the **✕ Close** button or by saving.
 
 ## What's new in v02
 
