@@ -6,11 +6,12 @@ A single-file browser-based tool for transcribing text from historical images an
 
 | File | Version | What it is |
 |---|---|---|
-| `picture-book-transcription-editor-v03.html` | **v03 — current** | Right-side non-blocking Item Metadata panel |
+| `picture-book-transcription-editor-v04.html` | **v04 — current** | Fully offline — all libraries inlined, no internet needed |
+| `picture-book-transcription-editor-v03.html` | v03 | Right-side non-blocking Item Metadata panel |
 | `picture-book-transcription-editor-v02.html` | v02 | Full feature set including Folder Audit |
 | `picture-book-transcription-editor.html` | v01 | Original release; all core features, no audit screen |
 
-**Use v03** unless you have a specific reason to stay on an earlier version. The files are independent — no installation, no shared state.
+**Use v04** unless you have a specific reason to stay on an earlier version. The files are independent — no installation, no shared state.
 
 ## What it does
 
@@ -20,7 +21,7 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 
 ## Getting started
 
-1. Open `picture-book-transcription-editor-v03.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
+1. Open `picture-book-transcription-editor-v04.html` in **Google Chrome** or **Microsoft Edge** (version 86 or later).
 2. Click **Open Folder** and select the folder containing your images or PDFs.
    - PDFs are split into one JPEG per page automatically (requires an internet connection the first time, to load the PDF.js library).
    - If a `ro-crate-metadata.json` already exists in the folder, the **Folder Audit** screen appears (see below) so you can catch any files added since the last session.
@@ -62,6 +63,17 @@ Open a folder of JPEG, PNG or PDF files, transcribe the text you see in up to th
 All data is written to `ro-crate-metadata.json` in the open [RO-Crate 1.1/1.2](https://www.researchobject.org/ro-crate/) format. The file records every image, transcription, region, crop and edited file with full provenance. It can be read by any RO-Crate-compatible tool and shared or archived alongside the images.
 
 ---
+
+## What's new in v04
+
+### Fully offline — no internet required
+v04 is a completely self-contained single file. All external dependencies have been bundled in:
+
+- **IBM Plex fonts** (Mono + Sans, all weights and subsets) — embedded as base64 data URIs directly in the CSS
+- **PDF.js** — inlined so PDFs can be opened without an internet connection
+- **JSZip** — inlined so crop ZIPs can be downloaded without an internet connection
+
+The file is ~2.5 MB but requires no network access at any point — it works on a plane, in the field, or on a machine with no internet.
 
 ## What's new in v03
 
